@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { ImageCropper } from '@/components/invoice/ImageCropper';
 import type { CroppedLogo } from '@/components/invoice/ImageCropper';
 import { useToast } from '@/context/ToastContext';
+import { describeLogoSrc, logLogoFailed, logLogoLoaded } from '@/lib/logo';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
@@ -16,58 +17,34 @@ interface LogoUploaderProps {
   onMetaChange?: (meta: { isLight: boolean }) => void;
 }
 
-/** What the cropper is currently reading from, and whether we own the URL. */
-interface CropSource {
-  url: string;
-  /** Object URLs must be revoked; data URLs must not be. */
-  revocable: boolean;
-}
-
 /**
  * Drop zone, cropper trigger and live preview for the company logo.
  *
- * Large uploads are handed to the cropper as an object URL rather than a
- * FileReader data URL — an 8 MB file would otherwise sit in React state as an
- * ~11 MB base64 string. The URL is revoked as soon as the cropper is finished
- * with it. SVG is the one exception: it is read as a data URL, because SVG
- * drawn from a blob URL can taint the canvas on some engines, and a tainted
- * canvas cannot be exported at all.
+ * **Every image is a base64 data URL, start to finish.** `URL.createObjectURL`
+ * is deliberately not used anywhere in this flow. A blob: URL is bound to the
+ * document that created it: it dies on reload, dies when revoked, and gives no
+ * useful error when it does — it simply renders nothing. A data URL is
+ * self-contained, survives `localStorage`, and embeds directly into the PDF and
+ * PNG exports. The cost is memory during cropping (an 8 MB file becomes an
+ * ~11 MB string), which is the right trade for a logo that always renders.
  */
 export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const sourceRef = useRef<CropSource | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [cropping, setCropping] = useState(false);
   const [broken, setBroken] = useState(false);
   const toast = useToast();
 
-  /** Revoke the previous object URL, if we created one. */
-  const releaseSource = useCallback(() => {
-    const current = sourceRef.current;
-    if (current?.revocable) URL.revokeObjectURL(current.url);
-    sourceRef.current = null;
+  const openCropper = useCallback((dataUrl: string) => {
+    setSource(dataUrl);
+    setCropping(true);
   }, []);
-
-  const openCropper = useCallback(
-    (next: CropSource) => {
-      releaseSource();
-      sourceRef.current = next;
-      setSource(next.url);
-      setCropping(true);
-    },
-    [releaseSource],
-  );
 
   const closeCropper = useCallback(() => {
     setCropping(false);
-    // The canvas already holds the pixels, so the URL is safe to release now.
-    releaseSource();
     setSource(null);
-  }, [releaseSource]);
-
-  // Never leak a URL if the section unmounts mid-crop.
-  useEffect(() => releaseSource, [releaseSource]);
+  }, []);
 
   // A newly assigned logo is trusted until an <img> says otherwise.
   useEffect(() => {
@@ -77,33 +54,46 @@ export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProp
   const readFile = useCallback(
     (file: File) => {
       if (!ACCEPTED.includes(file.type)) {
+        console.error('[Ledger] logo rejected · unsupported type', {
+          name: file.name,
+          type: file.type || '(none reported by the OS)',
+        });
         toast.error('That file type is not supported', 'Use a PNG, JPG, WebP, GIF or SVG.');
         return;
       }
       if (file.size > MAX_BYTES) {
+        console.error('[Ledger] logo rejected · too large', { name: file.name, bytes: file.size });
         toast.error('That image is too large', 'Pick a file under 8 MB.');
         return;
       }
 
-      if (file.type === 'image/svg+xml') {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result !== 'string') {
-            toast.error('The file could not be read', 'Try uploading it again.');
-            return;
-          }
-          openCropper({ url: reader.result, revocable: false });
-        };
-        reader.onerror = () => toast.error('The file could not be read', 'Try uploading it again.');
-        reader.readAsDataURL(file);
-        return;
-      }
+      const reader = new FileReader();
 
-      try {
-        openCropper({ url: URL.createObjectURL(file), revocable: true });
-      } catch {
+      reader.onload = () => {
+        if (typeof reader.result !== 'string' || !reader.result.startsWith('data:')) {
+          console.error('[Ledger] logo read produced no data URL', {
+            name: file.name,
+            resultType: typeof reader.result,
+          });
+          toast.error('The file could not be read', 'Try uploading it again.');
+          return;
+        }
+        console.info('[Ledger] logo file read', {
+          name: file.name,
+          type: file.type,
+          bytes: file.size,
+          dataUrl: describeLogoSrc(reader.result),
+        });
+        openCropper(reader.result);
+      };
+
+      reader.onerror = () => {
+        console.error('[Ledger] logo read failed', { name: file.name, error: reader.error?.message });
         toast.error('The file could not be read', 'Try uploading it again.');
-      }
+      };
+
+      // Always base64. See the note on this component for why not object URLs.
+      reader.readAsDataURL(file);
     },
     [openCropper, toast],
   );
@@ -116,9 +106,9 @@ export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProp
   };
 
   const removeLogo = () => {
+    console.info('[Ledger] logo removed');
     onChange(null);
     onMetaChange?.({ isLight: false });
-    releaseSource();
     setSource(null);
     setBroken(false);
     toast.info('Logo removed');
@@ -147,7 +137,11 @@ export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProp
                 src={value}
                 alt="Your company logo as it will appear on the invoice"
                 className="h-full w-full object-contain"
-                onError={() => setBroken(true)}
+                onLoad={(event) => logLogoLoaded('editor thumbnail', event.currentTarget)}
+                onError={() => {
+                  logLogoFailed('editor thumbnail', value);
+                  setBroken(true);
+                }}
               />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -160,7 +154,7 @@ export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProp
                   size="sm"
                   variant="outline"
                   leftIcon={<Crop className="h-3.5 w-3.5" />}
-                  onClick={() => openCropper({ url: value, revocable: false })}
+                  onClick={() => openCropper(value)}
                 >
                   Reposition
                 </Button>
@@ -262,6 +256,10 @@ export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProp
         source={source}
         onCancel={closeCropper}
         onApply={(result: CroppedLogo) => {
+          console.info('[Ledger] logo cropped', {
+            dataUrl: describeLogoSrc(result.dataUrl),
+            isLight: result.isLight,
+          });
           onChange(result.dataUrl);
           onMetaChange?.({ isLight: result.isLight });
           closeCropper();

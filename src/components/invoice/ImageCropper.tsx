@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Switch } from '@/components/ui/Switch';
+import { describeLogoSrc } from '@/lib/logo';
 import { clamp, cn } from '@/lib/utils';
 
 type Shape = 'square' | 'wide';
@@ -33,7 +34,7 @@ export interface CroppedLogo {
 
 interface ImageCropperProps {
   open: boolean;
-  /** Object URL or data URL of the image being cropped. */
+  /** Base64 data URL of the image being cropped. Never a blob: URL. */
   source: string | null;
   onCancel: () => void;
   onApply: (result: CroppedLogo) => void;
@@ -105,11 +106,20 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
         image.width = 512;
         image.height = 512;
       }
+      console.info('[Ledger] cropper source decoded', {
+        src: describeLogoSrc(source),
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
+      });
       imageRef.current = image;
       setReady(true);
     };
     image.onerror = () => {
       if (cancelled) return;
+      console.error('[Ledger] cropper could not decode the source image', {
+        src: describeLogoSrc(source),
+        reason: 'The browser rejected the image data. The file may be corrupt, or its extension may not match its contents.',
+      });
       imageRef.current = null;
       setReady(false);
       setError('That file could not be read as an image. Try a PNG, JPG, WebP or SVG.');
@@ -266,6 +276,13 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
         return;
       }
 
+      console.info('[Ledger] cropper output', {
+        dataUrl: describeLogoSrc(dataUrl),
+        width: output.width,
+        height: output.height,
+        isLight,
+        flattened: flatten,
+      });
       onApply({ dataUrl, isLight });
     } catch {
       setError('The image could not be processed. Try a smaller file.');

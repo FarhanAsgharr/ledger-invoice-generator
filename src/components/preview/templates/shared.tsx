@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { getStatus } from '@/constants/invoice';
+import { logLogoFailed, logLogoLoaded } from '@/lib/logo';
 import { formatDate, formatMoney } from '@/lib/format';
 import { displayUrl } from '@/lib/sanitize';
 import type { Invoice, InvoiceTotals } from '@/types';
@@ -67,17 +69,26 @@ export function Lines({ text, style }: { text: string; style?: CSSProperties }) 
   return <div style={{ whiteSpace: 'pre-line', ...style }}>{text}</div>;
 }
 
-export function Logo({ src, size = 64 }: { src: string | null; size?: number }) {
-  if (!src) return null;
+/**
+ * The logo on the paper.
+ *
+ * Returns `null` — not a hidden `<img>` — when the image will not decode. An
+ * earlier version hid the image but left `LogoPlate`'s white plate around it,
+ * which rendered an empty white box exactly where the logo should have been.
+ * Failing to nothing lets the business name carry the header instead.
+ */
+export function Logo({ src, size = 64, where = 'invoice sheet' }: LogoProps) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+
   return (
     <img
       src={src}
       alt=""
-      // A logo that will not decode must not leave a broken-image glyph on an
-      // invoice the customer is going to read. Remove it and let the business
-      // name carry the header.
-      onError={(event) => {
-        event.currentTarget.style.display = 'none';
+      onLoad={(event) => logLogoLoaded(where, event.currentTarget)}
+      onError={() => {
+        logLogoFailed(where, src);
+        setFailed(true);
       }}
       style={{
         maxHeight: `${size}px`,
@@ -89,22 +100,56 @@ export function Logo({ src, size = 64 }: { src: string | null; size?: number }) 
   );
 }
 
+interface LogoProps {
+  src: string | null;
+  size?: number;
+  /** Where this instance lives, so console output identifies itself. */
+  where?: string;
+}
+
 /**
  * The logo as it appears on a coloured header or sidebar.
  *
  * Dark artwork needs a white plate to stay legible against the accent; light
  * artwork must *not* get one, or a white-on-transparent logo disappears into
  * it. `logoIsLight` is measured once, when the logo is cropped.
+ *
+ * The plate and the image share one failure state, so a logo that cannot decode
+ * takes its plate down with it.
  */
 export function LogoPlate({
   business,
   size = 44,
+  where = 'invoice header',
 }: {
   business: Invoice['business'];
   size?: number;
+  where?: string;
 }) {
-  if (!business.logo) return null;
-  if (business.logoIsLight) return <Logo src={business.logo} size={size} />;
+  const [failed, setFailed] = useState(false);
+  const src = business.logo;
+  if (!src || failed) return null;
+
+  const image = (
+    <img
+      src={src}
+      alt=""
+      onLoad={(event) => logLogoLoaded(where, event.currentTarget)}
+      onError={() => {
+        logLogoFailed(where, src);
+        setFailed(true);
+      }}
+      style={{
+        maxHeight: `${size}px`,
+        maxWidth: `${size * 3.2}px`,
+        objectFit: 'contain',
+        display: 'block',
+      }}
+    />
+  );
+
+  if (business.logoIsLight) return image;
+
   return (
     <div
       style={{
@@ -114,7 +159,7 @@ export function LogoPlate({
         display: 'inline-block',
       }}
     >
-      <Logo src={business.logo} size={size} />
+      {image}
     </div>
   );
 }
