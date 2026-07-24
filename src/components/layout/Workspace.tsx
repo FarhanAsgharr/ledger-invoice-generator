@@ -21,7 +21,6 @@ import { Navbar } from '@/components/layout/Navbar';
 import { PreviewColumn, TotalsSidecar } from '@/components/layout/PreviewColumn';
 
 import { useArchive } from '@/context/ArchiveContext';
-import { usePaper } from '@/context/PaperContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useHotkeys } from '@/hooks/useHotkeys';
@@ -53,7 +52,6 @@ export function Workspace() {
   const archive = useArchive();
   const toast = useToast();
   const { toggleTheme } = useTheme();
-  const { exportFollowsTheme, setExportFollowsTheme, beginExportTheme } = usePaper();
   const isDesktop = useIsDesktop();
 
   const [pane, setPane] = useState<EditorPane>('edit');
@@ -154,16 +152,11 @@ export function Workspace() {
       setExporting(true);
       try {
         await ensurePreviewVisible();
-        const restoreTheme = await beginExportTheme();
-        try {
-          await exportElementToPdf(getSheetElement(), {
-            filename: `${safeFilename(values.number || 'invoice')}-${safeFilename(
-              values.customer.company || values.customer.name || 'customer',
-            )}`,
-          });
-        } finally {
-          restoreTheme();
-        }
+        await exportElementToPdf(getSheetElement(), {
+          filename: `${safeFilename(values.number || 'invoice')}-${safeFilename(
+            values.customer.company || values.customer.name || 'customer',
+          )}`,
+        });
         toast.success('PDF downloaded', 'Check your downloads folder.');
       } catch (error) {
         console.error('[Ledger] PDF export failed', error);
@@ -175,20 +168,14 @@ export function Workspace() {
         setExporting(false);
       }
     }, onInvalid)();
-  }, [handleSubmit, ensurePreviewVisible, beginExportTheme, toast, onInvalid]);
+  }, [handleSubmit, ensurePreviewVisible, toast, onInvalid]);
 
   const downloadImage = useCallback(() => {
     void handleSubmit(async (values) => {
       setExporting(true);
       try {
         await ensurePreviewVisible();
-        const restoreTheme = await beginExportTheme();
-        let blob: Blob;
-        try {
-          blob = await exportElementToPng(getSheetElement());
-        } finally {
-          restoreTheme();
-        }
+        const blob = await exportElementToPng(getSheetElement());
         downloadBlob(blob, `${safeFilename(values.number || 'invoice')}.png`);
         toast.success('Image downloaded', 'A PNG of the invoice is in your downloads folder.');
       } catch (error) {
@@ -201,25 +188,16 @@ export function Workspace() {
         setExporting(false);
       }
     }, onInvalid)();
-  }, [handleSubmit, ensurePreviewVisible, beginExportTheme, toast, onInvalid]);
+  }, [handleSubmit, ensurePreviewVisible, toast, onInvalid]);
 
   const printInvoice = useCallback(() => {
     void handleSubmit(async () => {
       await ensurePreviewVisible();
-      const restoreTheme = await beginExportTheme();
-
-      // `window.print()` returns before the preview closes in some browsers, so
-      // the sheet is restored on `afterprint` rather than on the next line.
-      const restore = () => {
-        window.removeEventListener('afterprint', restore);
-        restoreTheme();
-      };
-      window.addEventListener('afterprint', restore);
-
+      // Nothing to swap: the sheet already looks the way it should print.
       window.print();
       toast.info('Print dialog opened', 'Choose A4 and margins of “none” for the best result.');
     }, onInvalid)();
-  }, [handleSubmit, ensurePreviewVisible, beginExportTheme, toast, onInvalid]);
+  }, [handleSubmit, ensurePreviewVisible, toast, onInvalid]);
 
   const startNewInvoice = useCallback(() => {
     const current = getValues();
@@ -324,17 +302,6 @@ export function Workspace() {
         onNewInvoice={() => setConfirmReset(true)}
         onSave={saveInvoice}
         onPrint={printInvoice}
-        exportFollowsTheme={exportFollowsTheme}
-        onToggleExportTheme={() => {
-          const next = !exportFollowsTheme;
-          setExportFollowsTheme(next);
-          toast.info(
-            next ? 'Exports follow the app theme' : 'Exports use white paper',
-            next
-              ? 'PDF and print will match whichever theme you are viewing.'
-              : 'PDF and print stay light, whatever the app looks like.',
-          );
-        }}
         onDownload={downloadPdf}
         onDownloadImage={downloadImage}
         onOpenHistory={() => setHistoryOpen(true)}

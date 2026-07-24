@@ -2,7 +2,7 @@ import { Suspense, lazy, memo, useMemo } from 'react';
 import type { ComponentType, LazyExoticComponent } from 'react';
 import { SheetSkeleton } from '@/components/ui/Skeleton';
 import { SheetThemeProvider } from '@/components/preview/templates/SheetTheme';
-import { usePaper } from '@/context/PaperContext';
+import { useTheme } from '@/context/ThemeContext';
 import { cn } from '@/lib/utils';
 import { calculateTotals } from '@/lib/calc';
 import type { Invoice, InvoiceTotals, TemplateId } from '@/types';
@@ -48,18 +48,17 @@ interface InvoiceSheetProps {
 export const InvoiceSheet = memo(function InvoiceSheet({ invoice }: InvoiceSheetProps) {
   const totals = useMemo(() => calculateTotals(invoice), [invoice]);
   const Template = REGISTRY[invoice.template] ?? REGISTRY.modern;
-  const { mode, instant } = usePaper();
+  const { theme } = useTheme();
 
   return (
     <article
-      // `sheet-themed` cross-fades the paper's colours. It is dropped while an
-      // export forces a mode, so a capture never lands mid-transition.
-      className={cn('sheet', !instant && 'sheet-themed')}
-      data-sheet-mode={mode}
+      // `sheet-themed` cross-fades the paper's colours when the theme changes.
+      className={cn('sheet', 'sheet-themed')}
+      data-sheet-mode={theme}
       aria-label={`Invoice ${invoice.number} preview`}
       style={{ width: '794px' }}
     >
-      <SheetThemeProvider mode={mode} accent={invoice.accent}>
+      <SheetThemeProvider mode={theme} accent={invoice.accent}>
         <Suspense fallback={<SheetSkeleton />}>
           <Template invoice={invoice} totals={totals} />
         </Suspense>

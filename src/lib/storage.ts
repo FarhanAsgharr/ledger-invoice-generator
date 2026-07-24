@@ -15,7 +15,6 @@ export const STORAGE_KEYS = {
   draft: 'ledger.draft',
   history: 'ledger.history',
   lastNumber: 'ledger.lastNumber',
-  exportTheme: 'ledger.exportTheme',
   version: 'ledger.version',
 } as const;
 
@@ -104,20 +103,6 @@ export function clearDraft(): void {
   removeRaw(STORAGE_KEYS.draft);
 }
 
-/* ── Export appearance ───────────────────────────────────────────────────── */
-
-/**
- * Whether PDF and print follow the app theme. Defaults to false: a document
- * someone else opens, and probably prints, should be white paper.
- */
-export function loadExportFollowsTheme(): boolean {
-  return readRaw(STORAGE_KEYS.exportTheme) === 'current';
-}
-
-export function saveExportFollowsTheme(value: boolean): void {
-  writeRaw(STORAGE_KEYS.exportTheme, value ? 'current' : 'light');
-}
-
 /* ── Invoice number series ───────────────────────────────────────────────── */
 
 export function loadLastNumber(): string | null {
@@ -171,8 +156,16 @@ export function clearHistory(): void {
 
 /* ── Housekeeping ────────────────────────────────────────────────────────── */
 
-/** Runs once on boot. A no-op today; the hook exists for future migrations. */
+/** Keys written by earlier versions that nothing reads any more. */
+const RETIRED_KEYS = [
+  // Export used to be able to force white paper; it now always matches the
+  // screen, so a leftover preference would only be confusing.
+  'ledger.exportTheme',
+];
+
+/** Runs once on boot: stamps the schema version and clears retired keys. */
 export function runMigrations(): void {
+  RETIRED_KEYS.forEach(removeRaw);
   const stored = toNumber(readRaw(STORAGE_KEYS.version), 0);
   if (stored === SCHEMA_VERSION) return;
   writeRaw(STORAGE_KEYS.version, String(SCHEMA_VERSION));

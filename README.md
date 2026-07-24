@@ -129,10 +129,9 @@ src/
   they read one palette from `useSheetPalette()`, which is what lets the same markup render
   as white paper or as a dark document. Values are plain hex by the time they reach the DOM,
   and layout is flex and `<table>` only, so html2canvas rasterises them faithfully.
-- **Export defaults to white paper.** A PDF is a document someone else opens, and probably
-  prints, so it stays light whatever the app looks like. "Export using current theme" in the
-  ⋯ menu opts out. Forcing the mode re-renders the sheet and waits for paint, because the
-  colours are inline styles — there is nothing for a stylesheet to override.
+- **Export copies the screen.** PDF, PNG and print capture the sheet exactly as it is
+  rendered, in whichever theme is active. The paper colour is read back out of the DOM and
+  used for the canvas base and for each PDF page, so a dark invoice has no white edges.
 - **The preview, the printout and the PDF are the same DOM.** The sheet always lays out at
   794 px (A4 at 96 dpi) and is scaled with a transform for display. There is no separate
   print layout to keep in sync.
@@ -151,7 +150,6 @@ Nothing is uploaded. Everything lives under the `ledger.` prefix in `localStorag
 | `ledger.history`    | Saved invoices, newest first          |
 | `ledger.theme`      | Light or dark                         |
 | `ledger.lastNumber` | The last number used, for the series  |
-| `ledger.exportTheme` | Whether PDF and print follow the app theme |
 | `ledger.version`    | Schema version, for future migrations |
 
 - Free text is stripped of control characters and length-capped before storage

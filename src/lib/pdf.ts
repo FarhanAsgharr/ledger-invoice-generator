@@ -194,6 +194,55 @@ export function measureSheet(element: HTMLElement): SheetMetrics {
   return metrics;
 }
 
+/* ── Paper colour ────────────────────────────────────────────────────────── */
+
+/** Opaque white, as a fallback and as the value every guard degrades to. */
+const WHITE: RGB = { r: 255, g: 255, b: 255 };
+
+export interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
+
+function parseRgb(value: string): RGB | null {
+  const match = /^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?/i.exec(value.trim());
+  if (!match) return null;
+  // A transparent colour tells us nothing about what the page should be.
+  if (match[4] !== undefined && Number(match[4]) < 0.99) return null;
+  return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
+}
+
+/**
+ * The colour of the paper being exported.
+ *
+ * Read from the DOM rather than passed in, so the export cannot disagree with
+ * what is on screen: whatever the template painted is what the PDF gets. The
+ * template root carries it — `.sheet` itself is a frame, and its own background
+ * is the same in both themes.
+ *
+ * Every fallback is white, because a wrong-but-white page is legible and a
+ * wrong-but-dark one is not.
+ */
+export function readPaperColour(element: HTMLElement): RGB {
+  const sheet = element.classList.contains('sheet')
+    ? element
+    : element.querySelector<HTMLElement>('.sheet');
+  const candidates = [sheet?.firstElementChild, sheet, element].filter(
+    (node): node is HTMLElement => node instanceof HTMLElement,
+  );
+
+  for (const node of candidates) {
+    const parsed = parseRgb(getComputedStyle(node).backgroundColor);
+    if (parsed) return parsed;
+  }
+  return WHITE;
+}
+
+function toCssRgb({ r, g, b }: RGB): string {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 /* ── Cloning ─────────────────────────────────────────────────────────────── */
 
 const FORCE_VISIBLE: Array<[string, string]> = [
@@ -263,12 +312,14 @@ interface RasterResult {
  * sheet carries an explicit 794 px width of its own, so the capture is already
  * independent of the real viewport.
  */
-async function rasterise(element: HTMLElement, scale: number): Promise<RasterResult> {
+async function rasterise(element: HTMLElement, scale: number, paper: RGB): Promise<RasterResult> {
   const { default: html2canvas } = await import('html2canvas');
 
   const canvas = await html2canvas(element, {
     scale,
-    backgroundColor: '#ffffff',
+    // The canvas base must be the paper, not white. On a dark sheet a white
+    // base shows through anywhere the template does not paint.
+    backgroundColor: toCssRgb(paper),
     useCORS: true,
     allowTaint: false,
     logging: false,
@@ -285,7 +336,12 @@ async function rasterise(element: HTMLElement, scale: number): Promise<RasterRes
 }
 
 /** Copy a horizontal band out of the source canvas onto a page-sized canvas. */
-function sliceCanvas(source: HTMLCanvasElement, offsetY: number, sliceHeight: number): HTMLCanvasElement {
+function sliceCanvas(
+  source: HTMLCanvasElement,
+  offsetY: number,
+  sliceHeight: number,
+  paper: RGB,
+): HTMLCanvasElement {
   const slice = document.createElement('canvas');
   slice.width = source.width;
   slice.height = sliceHeight;
@@ -294,7 +350,7 @@ function sliceCanvas(source: HTMLCanvasElement, offsetY: number, sliceHeight: nu
   if (!ctx) {
     throw new ExportError('This browser would not provide a drawing surface for the export.');
   }
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = toCssRgb(paper);
   ctx.fillRect(0, 0, slice.width, slice.height);
   ctx.drawImage(source, 0, offsetY, source.width, sliceHeight, 0, 0, source.width, sliceHeight);
   return slice;
@@ -342,9 +398,16 @@ export async function exportElementToPdf(
 
   onProgress?.('measuring');
   const metrics = measureSheet(element);
+  // Whatever the template is painting right now — light or dark. The export
+  // never overrides it; it copies it.
+  const paper = readPaperColour(element);
 
   onProgress?.('rendering');
-  const { canvas, width: canvasWidth, height: canvasHeight } = await rasterise(element, chosenScale);
+  const { canvas, width: canvasWidth, height: canvasHeight } = await rasterise(
+    element,
+    chosenScale,
+    paper,
+  );
 
   logExport('captured', {
     elementWidth: metrics.layoutWidth,
@@ -355,6 +418,8 @@ export async function exportElementToPdf(
     canvasHeight,
     scale: chosenScale,
     devicePixelRatio: window.devicePixelRatio,
+    paper: `rgb(${paper.r}, ${paper.g}, ${paper.b})`,
+    sheetMode: element.querySelector('.sheet')?.getAttribute('data-sheet-mode') ?? 'unknown',
   });
 
   onProgress?.('assembling');
@@ -366,8 +431,17 @@ export async function exportElementToPdf(
   const mmPerPx = requirePositive('The page scale', A4_WIDTH_MM / canvasWidth);
   const fullHeightMM = requirePositive('The invoice height', canvasHeight * mmPerPx);
 
+  /*
+   * Paint the page before placing the image.
+   *
+   * A PDF page defaults to white, and the last page's image is almost always
+   * shorter than A4 — which on a dark sheet left a white strip along the bottom.
+   * Filling first means the page matches the paper edge to edge.
+   */
   const place = (dataUrl: string, heightMM: number) => {
     const safeHeight = Math.min(requirePositive('A page height', heightMM), A4_HEIGHT_MM);
+    pdf.setFillColor(paper.r, paper.g, paper.b);
+    pdf.rect(0, 0, A4_WIDTH_MM, A4_HEIGHT_MM, 'F');
     pdf.addImage(dataUrl, 'JPEG', 0, 0, A4_WIDTH_MM, safeHeight, undefined, 'FAST');
   };
 
@@ -387,7 +461,7 @@ export async function exportElementToPdf(
       if (sliceHeight <= 0) break;
 
       if (page > 0) pdf.addPage();
-      place(toJpegDataUrl(sliceCanvas(canvas, offsetY, sliceHeight)), sliceHeight * mmPerPx);
+      place(toJpegDataUrl(sliceCanvas(canvas, offsetY, sliceHeight, paper)), sliceHeight * mmPerPx);
     }
   }
 
@@ -414,7 +488,8 @@ export async function exportElementToPng(
   const chosenScale = resolveScale(scale);
   await waitForRenderedLayout();
   const metrics = measureSheet(element);
-  const { canvas, width, height } = await rasterise(element, chosenScale);
+  const paper = readPaperColour(element);
+  const { canvas, width, height } = await rasterise(element, chosenScale, paper);
 
   logExport('captured (png)', {
     elementWidth: metrics.layoutWidth,
@@ -422,6 +497,7 @@ export async function exportElementToPng(
     canvasWidth: width,
     canvasHeight: height,
     scale: chosenScale,
+    paper: `rgb(${paper.r}, ${paper.g}, ${paper.b})`,
   });
 
   return new Promise<Blob>((resolve, reject) => {

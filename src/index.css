@@ -327,6 +327,19 @@
      1122.5 px, so those exact values overflow by half a pixel and emit a blank
      second page. Restating them in millimetres — just inside the page — keeps a
      one-page invoice on one page. */
+  /*
+   * Chrome and Safari drop background colours when printing unless the user
+   * ticks "Background graphics". A dark invoice would otherwise print as dark
+   * text on white paper — unreadable in places, and not what is on screen.
+   * This opts the document in, so the printout matches the preview in either
+   * theme.
+   */
+  #print-root,
+  #print-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   #print-root .sheet,
   #print-root .sheet > * {
     box-shadow: none !important;

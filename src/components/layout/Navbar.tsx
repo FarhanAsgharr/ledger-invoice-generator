@@ -1,17 +1,4 @@
-import {
-  Archive,
-  Check,
-  CheckSquare,
-  Cloud,
-  Download,
-  FilePlus2,
-  ImageDown,
-  MoreHorizontal,
-  Printer,
-  Save,
-  Search,
-  Square,
-} from 'lucide-react';
+import { Archive, Check, Cloud, Download, FilePlus2, ImageDown, MoreHorizontal, Printer, Save, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Menu } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -31,9 +18,6 @@ export interface NavbarProps {
   saving: boolean;
   exporting: boolean;
   savedCount: number;
-  /** False means PDF and print use white paper whatever the app theme is. */
-  exportFollowsTheme: boolean;
-  onToggleExportTheme: () => void;
 }
 
 /** The app's one persistent surface: identity, autosave state and every action. */
@@ -48,8 +32,6 @@ export function Navbar({
   savedAt,
   saving,
   exporting,
-  exportFollowsTheme,
-  onToggleExportTheme,
   savedCount,
 }: NavbarProps) {
   return (
@@ -186,13 +168,6 @@ export function Navbar({
             },
             { id: 'search', label: 'Search', icon: <Search />, onSelect: onOpenSearch, meta: '⌘K' },
             { id: 'history', label: 'Saved invoices', icon: <Archive />, onSelect: onOpenHistory },
-            {
-              id: 'export-theme',
-              label: 'Export using current theme',
-              icon: exportFollowsTheme ? <CheckSquare /> : <Square />,
-              onSelect: onToggleExportTheme,
-              meta: exportFollowsTheme ? 'On' : 'Off',
-            },
           ]}
           trigger={({ open, toggle, ref }) => (
             <button
