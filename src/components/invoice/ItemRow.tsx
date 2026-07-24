@@ -2,7 +2,8 @@ import { memo, useId } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { ChevronDown, ChevronUp, Copy, GripVertical, Trash2 } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { getCurrency } from '@/constants/currencies';
+import { InlineSelect } from '@/components/ui/InlineSelect';
+import { CURRENCIES, getCurrency } from '@/constants/currencies';
 import { calculateLine } from '@/lib/calc';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -22,10 +23,24 @@ interface ItemRowProps {
   onDragEnter: (index: number) => void;
   onDragEnd: () => void;
   productListId: string;
+  /** Sets the invoice-wide currency from the chip inside the price field. */
+  onCurrencyChange: (code: string) => void;
 }
 
+/** Offered first in the currency chip, before the full list. */
+const COMMON_CURRENCIES = ['USD', 'PKR', 'EUR', 'GBP', 'INR', 'AED', 'SAR'];
+
+/**
+ * Shared field styling for the row.
+ *
+ * Deliberately carries no width. An earlier version included `w-full` here and
+ * was composed with `w-11` on the discount select; Tailwind emits `w-full`
+ * after the fixed widths, so the fixed width never applied, the select stretched
+ * to the full cell and pushed the row past the card border. Width is now always
+ * stated by the caller.
+ */
 const CELL =
-  'h-9 w-full rounded-lg bg-sunken px-2.5 text-sm text-fg tabular ring-1 ring-inset ring-hairline ' +
+  'h-9 rounded-lg bg-sunken px-2.5 text-sm text-fg tabular ring-1 ring-inset ring-hairline ' +
   'transition-shadow duration-150 hover:ring-faint/45 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500';
 
 const MICRO_LABEL = 'mb-1 block text-2xs font-semibold uppercase tracking-wider text-faint';
@@ -51,6 +66,7 @@ export const ItemRow = memo(function ItemRow({
   onDragEnter,
   onDragEnd,
   productListId,
+  onCurrencyChange,
 }: ItemRowProps) {
   const {
     register,
@@ -67,6 +83,7 @@ export const ItemRow = memo(function ItemRow({
     : { gross: 0, discount: 0, net: 0, tax: 0, total: 0 };
 
   const itemErrors = errors.items?.[index];
+  const discountKind = item?.discount?.kind ?? 'percentage';
 
   return (
     <li
@@ -113,7 +130,7 @@ export const ItemRow = memo(function ItemRow({
                 list={productListId}
                 placeholder="What are you billing for?"
                 autoComplete="off"
-                className={cn(CELL, 'font-semibold', itemErrors?.name && 'ring-danger-400')}
+                className={cn(CELL, 'w-full font-semibold', itemErrors?.name && 'ring-danger-400')}
                 aria-invalid={itemErrors?.name ? true : undefined}
                 {...register(`items.${index}.name`)}
               />
@@ -144,7 +161,7 @@ export const ItemRow = memo(function ItemRow({
               id={`${rowId}-description`}
               rows={1}
               placeholder="Add a description (optional)"
-              className={cn(CELL, 'h-auto min-h-[2.25rem] resize-y py-2 text-[0.8125rem]')}
+              className={cn(CELL, 'h-auto min-h-[2.25rem] w-full resize-y py-2 text-[0.8125rem]')}
               {...register(`items.${index}.description`)}
             />
           </div>
@@ -155,7 +172,7 @@ export const ItemRow = memo(function ItemRow({
               perItemTax ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3',
             )}
           >
-            <div>
+            <div className="min-w-0">
               <label htmlFor={`${rowId}-qty`} className={MICRO_LABEL}>
                 Qty
               </label>
@@ -165,30 +182,51 @@ export const ItemRow = memo(function ItemRow({
                 inputMode="decimal"
                 min={0}
                 step="any"
-                className={cn(CELL, itemErrors?.quantity && 'ring-danger-400')}
+                className={cn(CELL, 'w-full', itemErrors?.quantity && 'ring-danger-400')}
                 aria-invalid={itemErrors?.quantity ? true : undefined}
                 {...register(`items.${index}.quantity`, { valueAsNumber: true })}
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label htmlFor={`${rowId}-price`} className={MICRO_LABEL}>
                 Unit price
               </label>
               <div className="relative">
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-xs text-faint"
+                {/* The chip sets the invoice currency, not a per-line one: an
+                    invoice has a single currency, or its total means nothing. */}
+                <InlineSelect
+                  side="left"
+                  chipLabel={currency.symbol}
+                  value={currencyCode}
+                  onChange={(event) => onCurrencyChange(event.target.value)}
+                  aria-label="Invoice currency"
                 >
-                  {currency.symbol}
-                </span>
+                  <optgroup label="Common">
+                    {COMMON_CURRENCIES.map((code) => {
+                      const option = getCurrency(code);
+                      return (
+                        <option key={option.code} value={option.code}>
+                          {option.symbol} · {option.code} — {option.name}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                  <optgroup label="All currencies">
+                    {CURRENCIES.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.symbol} · {option.code} — {option.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </InlineSelect>
                 <input
                   id={`${rowId}-price`}
                   type="number"
                   inputMode="decimal"
                   min={0}
                   step="any"
-                  className={cn(CELL, 'pl-7', itemErrors?.unitPrice && 'ring-danger-400')}
+                  className={cn(CELL, 'w-full pl-14', itemErrors?.unitPrice && 'ring-danger-400')}
                   aria-invalid={itemErrors?.unitPrice ? true : undefined}
                   {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
                 />
@@ -196,7 +234,7 @@ export const ItemRow = memo(function ItemRow({
             </div>
 
             {perItemTax && (
-              <div>
+              <div className="min-w-0">
                 <label htmlFor={`${rowId}-tax`} className={MICRO_LABEL}>
                   Tax %
                 </label>
@@ -208,7 +246,7 @@ export const ItemRow = memo(function ItemRow({
                     min={0}
                     max={100}
                     step="any"
-                    className={cn(CELL, 'pr-6')}
+                    className={cn(CELL, 'w-full pr-6')}
                     {...register(`items.${index}.taxRate`, { valueAsNumber: true })}
                   />
                   <span
@@ -221,31 +259,29 @@ export const ItemRow = memo(function ItemRow({
               </div>
             )}
 
-            <div>
+            <div className="min-w-0">
               <label htmlFor={`${rowId}-discount`} className={MICRO_LABEL}>
                 Discount
               </label>
-              <div className="flex gap-1">
+              <div className="relative">
                 <input
                   id={`${rowId}-discount`}
                   type="number"
                   inputMode="decimal"
                   min={0}
                   step="any"
-                  className={cn(CELL, 'flex-1')}
+                  className={cn(CELL, 'w-full pr-14')}
                   {...register(`items.${index}.discount.value`, { valueAsNumber: true })}
                 />
-                <label htmlFor={`${rowId}-discount-kind`} className="sr-only">
-                  Discount type for item {index + 1}
-                </label>
-                <select
-                  id={`${rowId}-discount-kind`}
-                  className={cn(CELL, 'w-11 shrink-0 cursor-pointer px-0 text-center font-mono text-xs')}
+                <InlineSelect
+                  side="right"
+                  chipLabel={discountKind === 'fixed' ? currency.symbol : '%'}
+                  aria-label={`Discount type for item ${index + 1}`}
                   {...register(`items.${index}.discount.kind`)}
                 >
-                  <option value="percentage">%</option>
-                  <option value="fixed">{currency.symbol}</option>
-                </select>
+                  <option value="percentage">Percentage (%)</option>
+                  <option value="fixed">Flat amount ({currency.symbol})</option>
+                </InlineSelect>
               </div>
             </div>
           </div>

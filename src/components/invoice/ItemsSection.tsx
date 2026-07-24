@@ -114,6 +114,9 @@ export function ItemsSection() {
               onDragEnter={setOverIndex}
               onDragEnd={onDragEnd}
               productListId={productListId}
+              onCurrencyChange={(code) =>
+                setValue('currencyCode', code, { shouldDirty: true, shouldValidate: true })
+              }
             />
           ))}
         </ul>

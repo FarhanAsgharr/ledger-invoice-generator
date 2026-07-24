@@ -1,6 +1,7 @@
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { FileText, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Input, Select } from '@/components/ui/Field';
 import { Panel } from '@/components/ui/Panel';
 import { CurrencyPicker } from '@/components/invoice/CurrencyPicker';
@@ -82,24 +83,47 @@ export function DetailsSection() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Issue date"
-            type="date"
-            required
-            error={errors.issueDate?.message}
-            {...register('issueDate')}
+          <Controller
+            control={control}
+            name="issueDate"
+            render={({ field }) => (
+              <DatePicker
+                label="Issue date"
+                required
+                value={field.value ?? ''}
+                onChange={(next) => {
+                  field.onChange(next);
+                  // Keep the due date on the far side of the issue date; the
+                  // schema rejects the inverse, so fix it rather than warn.
+                  if (next && dueDate && dueDate < next) {
+                    setValue('dueDate', next, { shouldDirty: true, shouldValidate: true });
+                  }
+                }}
+                error={errors.issueDate?.message}
+                hint="The date the work was billed"
+              />
+            )}
           />
-          <Input
-            label="Due date"
-            type="date"
-            required
-            error={errors.dueDate?.message}
-            hint={
-              dueHint ? (
-                <span className={cn(overdue && 'font-semibold text-danger-400')}>{dueHint}</span>
-              ) : undefined
-            }
-            {...register('dueDate')}
+          <Controller
+            control={control}
+            name="dueDate"
+            render={({ field }) => (
+              <DatePicker
+                label="Due date"
+                required
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                min={issueDate || undefined}
+                error={errors.dueDate?.message}
+                hint={
+                  dueHint ? (
+                    <span className={cn(overdue && 'font-semibold text-danger-400')}>{dueHint}</span>
+                  ) : (
+                    'Days before this fall outside the terms'
+                  )
+                }
+              />
+            )}
           />
         </div>
 
