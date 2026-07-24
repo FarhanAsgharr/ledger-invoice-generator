@@ -1,6 +1,7 @@
 import {
   Archive,
   Check,
+  CheckSquare,
   Cloud,
   Download,
   FilePlus2,
@@ -9,6 +10,7 @@ import {
   Printer,
   Save,
   Search,
+  Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Menu } from '@/components/ui/Menu';
@@ -29,6 +31,9 @@ export interface NavbarProps {
   saving: boolean;
   exporting: boolean;
   savedCount: number;
+  /** False means PDF and print use white paper whatever the app theme is. */
+  exportFollowsTheme: boolean;
+  onToggleExportTheme: () => void;
 }
 
 /** The app's one persistent surface: identity, autosave state and every action. */
@@ -43,6 +48,8 @@ export function Navbar({
   savedAt,
   saving,
   exporting,
+  exportFollowsTheme,
+  onToggleExportTheme,
   savedCount,
 }: NavbarProps) {
   return (
@@ -62,7 +69,12 @@ export function Navbar({
                 strokeWidth="1.8"
                 strokeLinejoin="round"
               />
-              <path d="M8.5 10h7M8.5 13.5h7M8.5 17h4" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+              <path
+                d="M8.5 10h7M8.5 13.5h7M8.5 17h4"
+                stroke="white"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
             </svg>
           </span>
           <span className="hidden text-[0.9375rem] font-extrabold tracking-[-0.02em] text-fg sm:block">
@@ -157,7 +169,13 @@ export function Navbar({
         <Menu
           label="More actions"
           items={[
-            { id: 'new', label: 'New invoice', icon: <FilePlus2 />, onSelect: onNewInvoice, meta: '⌘⇧N' },
+            {
+              id: 'new',
+              label: 'New invoice',
+              icon: <FilePlus2 />,
+              onSelect: onNewInvoice,
+              meta: '⌘⇧N',
+            },
             { id: 'save', label: 'Save invoice', icon: <Save />, onSelect: onSave, meta: '⌘S' },
             { id: 'print', label: 'Print', icon: <Printer />, onSelect: onPrint, meta: '⌘P' },
             {
@@ -168,6 +186,13 @@ export function Navbar({
             },
             { id: 'search', label: 'Search', icon: <Search />, onSelect: onOpenSearch, meta: '⌘K' },
             { id: 'history', label: 'Saved invoices', icon: <Archive />, onSelect: onOpenHistory },
+            {
+              id: 'export-theme',
+              label: 'Export using current theme',
+              icon: exportFollowsTheme ? <CheckSquare /> : <Square />,
+              onSelect: onToggleExportTheme,
+              meta: exportFollowsTheme ? 'On' : 'Off',
+            },
           ]}
           trigger={({ open, toggle, ref }) => (
             <button

@@ -1,24 +1,23 @@
 import {
   ContactBlock,
   FooterBlock,
-  INK,
   ItemsTable,
   Label,
   Logo,
-  MUTED,
   Stamp,
   TotalsBlock,
   metaRows,
-  sheetBase,
 } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 
 /** Type and rules only. Nothing competes with the numbers. */
 export function MinimalTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { INK, MUTED, accent } = palette;
 
   return (
-    <div style={{ ...sheetBase, padding: '64px 64px 56px' }}>
+    <div style={{ ...sheetRoot(palette), padding: '64px 64px 56px' }}>
       <Stamp invoice={invoice} />
 
       <header
@@ -98,7 +97,12 @@ export function MinimalTemplate({ invoice, totals }: TemplateProps) {
           {metaRows(invoice).map((row) => (
             <div
               key={row.label}
-              style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: MUTED }}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '11.5px',
+                color: MUTED,
+              }}
             >
               <span>{row.label}</span>
               <span style={{ color: INK, fontVariantNumeric: 'tabular-nums' }}>{row.value}</span>

@@ -190,6 +190,22 @@
     @apply bg-brand-400/12 text-brand-300;
   }
 
+  /*
+   * Cross-fade between the light and dark papers.
+   *
+   * Template colours are inline styles on hundreds of nodes, so the transition
+   * is declared once here and inherited by the subtree. `sheet-themed` is
+   * removed while an export forces a mode — html2canvas reads computed styles,
+   * and a capture taken mid-transition would rasterise interpolated colours.
+   */
+  .sheet-themed,
+  .sheet-themed * {
+    transition:
+      background-color 380ms cubic-bezier(0.32, 0.72, 0, 1),
+      border-color 380ms cubic-bezier(0.32, 0.72, 0, 1),
+      color 380ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
   /* ── The paper sheet ── */
   .sheet {
     background-color: rgb(var(--sheet-bg));
@@ -205,6 +221,15 @@
       0 0 0 1px rgb(255 255 255 / 0.08),
       0 12px 24px -8px rgb(0 0 0 / 0.5),
       0 40px 72px -28px rgb(0 0 0 / 0.7);
+  }
+
+  /* A light sheet on a dark desk still needs the pale rim; a dark sheet needs a
+     brighter one, or the paper's edge disappears into the desk. */
+  .dark .sheet[data-sheet-mode='dark'] {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.12),
+      0 12px 24px -8px rgb(0 0 0 / 0.55),
+      0 40px 72px -28px rgb(0 0 0 / 0.75);
   }
 }
 
@@ -317,6 +342,12 @@
 
   .no-print {
     display: none !important;
+  }
+
+  /* A half-finished cross-fade must not reach the printer. */
+  .sheet-themed,
+  .sheet-themed * {
+    transition: none !important;
   }
 
   /* Keep table rows and the totals block from splitting across pages. */

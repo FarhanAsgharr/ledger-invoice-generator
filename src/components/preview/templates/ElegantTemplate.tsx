@@ -1,30 +1,30 @@
 import {
   ContactBlock,
   FooterBlock,
-  INK,
   ItemsTable,
   Label,
   Logo,
-  MUTED,
-  RULE,
   Stamp,
   TotalsBlock,
   metaRows,
-  sheetBase,
 } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 
 const SERIF = '"Playfair Display", ui-serif, Georgia, serif';
 
 /** Serif display, hairline rules, wide margins. For studios. */
 export function ElegantTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { INK, MUTED, RULE, accent } = palette;
 
   return (
-    <div style={{ ...sheetBase, padding: '68px 72px 60px' }}>
+    <div style={{ ...sheetRoot(palette), padding: '68px 72px 60px' }}>
       <Stamp invoice={invoice} />
 
-      <header style={{ textAlign: 'center', paddingBottom: '28px', borderBottom: `1px solid ${RULE}` }}>
+      <header
+        style={{ textAlign: 'center', paddingBottom: '28px', borderBottom: `1px solid ${RULE}` }}
+      >
         {invoice.business.logo && (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
             <Logo src={invoice.business.logo} size={52} />

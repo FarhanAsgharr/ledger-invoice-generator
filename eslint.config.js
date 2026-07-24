@@ -37,6 +37,7 @@ export default tseslint.config(
       'src/context/**/*.tsx',
       'src/components/preview/InvoiceSheet.tsx',
       'src/components/preview/templates/shared.tsx',
+      'src/components/preview/templates/SheetTheme.tsx',
     ],
     rules: { 'react-refresh/only-export-components': 'off' },
   },

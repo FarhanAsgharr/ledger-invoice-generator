@@ -1,24 +1,23 @@
 import {
   ContactBlock,
   FooterBlock,
-  INK,
   ItemsTable,
   Label,
   Logo,
-  MUTED,
   Stamp,
   TotalsBlock,
   metaRows,
-  sheetBase,
 } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 
 /** Oversized number, asymmetric grid, a splash of colour. */
 export function CreativeTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { INK, MUTED, accent, accentFill } = palette;
 
   return (
-    <div style={{ ...sheetBase, padding: '0' }}>
+    <div style={{ ...sheetRoot(palette), padding: '0' }}>
       <Stamp invoice={invoice} />
 
       {/* Corner wash — the one decorative element, anchored so it never crowds text. */}
@@ -31,7 +30,7 @@ export function CreativeTemplate({ invoice, totals }: TemplateProps) {
           width: '360px',
           height: '360px',
           borderRadius: '50%',
-          backgroundColor: accent,
+          backgroundColor: accentFill,
           opacity: 0.1,
         }}
       />
@@ -43,12 +42,19 @@ export function CreativeTemplate({ invoice, totals }: TemplateProps) {
           left: '0',
           width: '10px',
           height: '210px',
-          backgroundColor: accent,
+          backgroundColor: accentFill,
         }}
       />
 
       <div style={{ padding: '54px 56px 48px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '28px' }}>
+        <header
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '28px',
+          }}
+        >
           <div style={{ minWidth: 0 }}>
             <div
               style={{
@@ -83,7 +89,9 @@ export function CreativeTemplate({ invoice, totals }: TemplateProps) {
             <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-0.015em' }}>
               {invoice.business.name || 'Your business'}
             </div>
-            <div style={{ fontSize: '11.5px', color: MUTED, whiteSpace: 'pre-line', marginTop: '4px' }}>
+            <div
+              style={{ fontSize: '11.5px', color: MUTED, whiteSpace: 'pre-line', marginTop: '4px' }}
+            >
               {invoice.business.address}
             </div>
             {invoice.business.email && (
@@ -109,10 +117,19 @@ export function CreativeTemplate({ invoice, totals }: TemplateProps) {
             <Label style={{ color: accent }}>When</Label>
             {metaRows(invoice).map((row) => (
               <div key={row.label} style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '10px', color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <div
+                  style={{
+                    fontSize: '10px',
+                    color: MUTED,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                  }}
+                >
                   {row.label}
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                <div
+                  style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+                >
                   {row.value}
                 </div>
               </div>

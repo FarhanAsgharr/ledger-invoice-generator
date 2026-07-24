@@ -1,23 +1,12 @@
-import {
-  ContactBlock,
-  FooterBlock,
-  INK,
-  Label,
-  Logo,
-  MUTED,
-  RULE,
-  Stamp,
-  TotalsBlock,
-  WASH,
-  metaRows,
-  sheetBase,
-} from './shared';
+import { ContactBlock, FooterBlock, Label, Logo, Stamp, TotalsBlock, metaRows } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 import { amountInWords, formatMoney } from '@/lib/format';
 
 /** The bordered, ruled invoice accountants have filed for decades. */
 export function ClassicTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { INK, MUTED, RULE, WASH, accent } = palette;
   const money = (value: number) => formatMoney(value, invoice.currencyCode);
   const showTax = invoice.perItemTax;
   const showDiscount = totals.lines.some((line) => line.discount > 0);
@@ -36,7 +25,7 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
   };
 
   return (
-    <div style={{ ...sheetBase, padding: '28px' }}>
+    <div style={{ ...sheetRoot(palette), padding: '28px' }}>
       <div
         style={{
           border: `2px solid ${INK}`,
@@ -49,7 +38,9 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
       >
         <Stamp invoice={invoice} />
 
-        <div style={{ textAlign: 'center', borderBottom: `2px solid ${INK}`, paddingBottom: '14px' }}>
+        <div
+          style={{ textAlign: 'center', borderBottom: `2px solid ${INK}`, paddingBottom: '14px' }}
+        >
           <div
             style={{
               fontSize: '20px',
@@ -99,7 +90,14 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
             <table style={{ width: '100%', borderCollapse: 'collapse', border: cellBorder }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '6px 9px', fontSize: '10.5px', color: MUTED, borderBottom: cellBorder }}>
+                  <td
+                    style={{
+                      padding: '6px 9px',
+                      fontSize: '10.5px',
+                      color: MUTED,
+                      borderBottom: cellBorder,
+                    }}
+                  >
                     No.
                   </td>
                   <td
@@ -117,7 +115,14 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
                 </tr>
                 {metaRows(invoice).map((row) => (
                   <tr key={row.label}>
-                    <td style={{ padding: '6px 9px', fontSize: '10.5px', color: MUTED, borderBottom: cellBorder }}>
+                    <td
+                      style={{
+                        padding: '6px 9px',
+                        fontSize: '10.5px',
+                        color: MUTED,
+                        borderBottom: cellBorder,
+                      }}
+                    >
                       {row.label}
                     </td>
                     <td
@@ -138,16 +143,27 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
           </div>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '24px', border: cellBorder }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            marginTop: '24px',
+            border: cellBorder,
+          }}
+        >
           <thead>
             <tr>
               <th style={{ ...headCell, width: '32px', textAlign: 'center' }}>#</th>
               <th style={{ ...headCell, textAlign: 'left' }}>Description</th>
               <th style={{ ...headCell, textAlign: 'right', width: '56px' }}>Qty</th>
               <th style={{ ...headCell, textAlign: 'right', width: '84px' }}>Rate</th>
-              {showDiscount && <th style={{ ...headCell, textAlign: 'right', width: '72px' }}>Disc.</th>}
+              {showDiscount && (
+                <th style={{ ...headCell, textAlign: 'right', width: '72px' }}>Disc.</th>
+              )}
               {showTax && <th style={{ ...headCell, textAlign: 'right', width: '52px' }}>Tax</th>}
-              <th style={{ ...headCell, textAlign: 'right', width: '94px', borderRight: 'none' }}>Amount</th>
+              <th style={{ ...headCell, textAlign: 'right', width: '94px', borderRight: 'none' }}>
+                Amount
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -179,10 +195,14 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
                   <td style={{ ...cell, ...numeric }}>{item.quantity}</td>
                   <td style={{ ...cell, ...numeric }}>{money(item.unitPrice)}</td>
                   {showDiscount && (
-                    <td style={{ ...cell, ...numeric }}>{line?.discount ? `− ${money(line.discount)}` : '—'}</td>
+                    <td style={{ ...cell, ...numeric }}>
+                      {line?.discount ? `− ${money(line.discount)}` : '—'}
+                    </td>
                   )}
                   {showTax && (
-                    <td style={{ ...cell, ...numeric }}>{item.taxRate ? `${item.taxRate}%` : '—'}</td>
+                    <td style={{ ...cell, ...numeric }}>
+                      {item.taxRate ? `${item.taxRate}%` : '—'}
+                    </td>
                   )}
                   <td style={{ ...cell, ...numeric, borderRight: 'none', fontWeight: 600 }}>
                     {money(line?.total ?? 0)}
@@ -193,7 +213,14 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
           </tbody>
         </table>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '32px', marginTop: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '32px',
+            marginTop: '20px',
+          }}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
             <Label>Amount in words</Label>
             <div style={{ fontSize: '11.5px', color: INK, fontStyle: 'italic' }}>
@@ -213,7 +240,14 @@ export function ClassicTemplate({ invoice, totals }: TemplateProps) {
           }}
         >
           <div style={{ width: '220px', textAlign: 'center' }}>
-            <div style={{ borderTop: `1px solid ${INK}`, paddingTop: '6px', fontSize: '10.5px', color: MUTED }}>
+            <div
+              style={{
+                borderTop: `1px solid ${INK}`,
+                paddingTop: '6px',
+                fontSize: '10.5px',
+                color: MUTED,
+              }}
+            >
               Authorised signature
             </div>
           </div>

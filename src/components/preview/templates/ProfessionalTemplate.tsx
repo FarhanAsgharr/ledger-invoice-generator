@@ -1,33 +1,32 @@
 import {
   ContactBlock,
-  INK,
   ItemsTable,
   Label,
   Lines,
   LogoPlate,
-  MUTED,
   Stamp,
   TotalsBlock,
   metaRows,
-  sheetBase,
 } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 import { displayUrl } from '@/lib/sanitize';
 
 /** Sidebar for your details, wide table for the work. */
 export function ProfessionalTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { INK, MUTED, accent, accentFill, accentInk } = palette;
   const site = displayUrl(invoice.business.website);
 
   return (
-    <div style={{ ...sheetBase, flexDirection: 'row' }}>
+    <div style={{ ...sheetRoot(palette), flexDirection: 'row' }}>
       {/* Sidebar */}
       <aside
         style={{
           width: '232px',
           flexShrink: 0,
-          backgroundColor: accent,
-          color: '#ffffff',
+          backgroundColor: accentFill,
+          color: accentInk,
           padding: '44px 26px',
           display: 'flex',
           flexDirection: 'column',
@@ -47,7 +46,9 @@ export function ProfessionalTemplate({ invoice, totals }: TemplateProps) {
 
         <div style={{ fontSize: '11.5px', lineHeight: 1.7, opacity: 0.92 }}>
           <Lines text={invoice.business.address} />
-          {invoice.business.phone && <div style={{ marginTop: '8px' }}>{invoice.business.phone}</div>}
+          {invoice.business.phone && (
+            <div style={{ marginTop: '8px' }}>{invoice.business.phone}</div>
+          )}
           {invoice.business.email && <div>{invoice.business.email}</div>}
           {site && <div>{site}</div>}
         </div>
@@ -67,7 +68,9 @@ export function ProfessionalTemplate({ invoice, totals }: TemplateProps) {
               Registration
             </div>
             {invoice.business.taxNumber && <div>Tax no {invoice.business.taxNumber}</div>}
-            {invoice.business.registrationNumber && <div>Reg no {invoice.business.registrationNumber}</div>}
+            {invoice.business.registrationNumber && (
+              <div>Reg no {invoice.business.registrationNumber}</div>
+            )}
           </div>
         )}
 
@@ -103,7 +106,14 @@ export function ProfessionalTemplate({ invoice, totals }: TemplateProps) {
       >
         <Stamp invoice={invoice} />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '24px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: '24px',
+          }}
+        >
           <div>
             <div
               style={{

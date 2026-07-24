@@ -1,26 +1,23 @@
 import {
   ContactBlock,
   FooterBlock,
-  INK,
   ItemsTable,
   Label,
   Logo,
-  MUTED,
-  RULE,
   Stamp,
   TotalsBlock,
-  WASH,
   metaRows,
-  sheetBase,
 } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 
 /** Banded table and a boxed summary. Built for procurement teams. */
 export function CorporateTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { INK, MUTED, PAPER, RULE, WASH, accent, accentFill, accentInk } = palette;
 
   return (
-    <div style={sheetBase}>
+    <div style={sheetRoot(palette)}>
       <Stamp invoice={invoice} />
 
       <div style={{ height: '8px', backgroundColor: accent }} />
@@ -33,7 +30,9 @@ export function CorporateTemplate({ invoice, totals }: TemplateProps) {
                 <Logo src={invoice.business.logo} size={48} />
               </div>
             )}
-            <div style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.015em', color: INK }}>
+            <div
+              style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.015em', color: INK }}
+            >
               {invoice.business.name || 'Your business'}
             </div>
             <ContactBlock
@@ -51,8 +50,8 @@ export function CorporateTemplate({ invoice, totals }: TemplateProps) {
           <div style={{ width: '250px', flexShrink: 0 }}>
             <div
               style={{
-                backgroundColor: accent,
-                color: '#ffffff',
+                backgroundColor: accentFill,
+                color: accentInk,
                 padding: '10px 14px',
                 fontSize: '13px',
                 fontWeight: 800,
@@ -62,10 +61,19 @@ export function CorporateTemplate({ invoice, totals }: TemplateProps) {
             >
               Tax invoice
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: `1px solid ${RULE}` }}>
+            <table
+              style={{ width: '100%', borderCollapse: 'collapse', border: `1px solid ${RULE}` }}
+            >
               <tbody>
                 <tr>
-                  <td style={{ padding: '7px 12px', fontSize: '11px', color: MUTED, backgroundColor: WASH }}>
+                  <td
+                    style={{
+                      padding: '7px 12px',
+                      fontSize: '11px',
+                      color: MUTED,
+                      backgroundColor: WASH,
+                    }}
+                  >
                     Invoice no
                   </td>
                   <td
@@ -87,7 +95,7 @@ export function CorporateTemplate({ invoice, totals }: TemplateProps) {
                         padding: '7px 12px',
                         fontSize: '11px',
                         color: MUTED,
-                        backgroundColor: index % 2 === 0 ? '#ffffff' : WASH,
+                        backgroundColor: index % 2 === 0 ? PAPER : WASH,
                       }}
                     >
                       {row.label}
@@ -98,7 +106,7 @@ export function CorporateTemplate({ invoice, totals }: TemplateProps) {
                         fontSize: '11.5px',
                         fontWeight: 600,
                         textAlign: 'right',
-                        backgroundColor: index % 2 === 0 ? '#ffffff' : WASH,
+                        backgroundColor: index % 2 === 0 ? PAPER : WASH,
                         fontVariantNumeric: 'tabular-nums',
                       }}
                     >

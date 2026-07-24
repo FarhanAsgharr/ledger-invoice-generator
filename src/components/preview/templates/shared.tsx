@@ -4,6 +4,7 @@ import { getStatus } from '@/constants/invoice';
 import { logLogoFailed, logLogoLoaded } from '@/lib/logo';
 import { formatDate, formatMoney } from '@/lib/format';
 import { displayUrl } from '@/lib/sanitize';
+import { useSheetPalette } from './SheetTheme';
 import type { Invoice, InvoiceTotals } from '@/types';
 
 /**
@@ -11,9 +12,10 @@ import type { Invoice, InvoiceTotals } from '@/types';
  *
  * Two rules hold across every template in this folder:
  *
- *  1. **No design tokens.** Colours are literal hex. The sheet is a document,
- *     not a UI panel — it must look identical in light mode, dark mode, print
- *     and PDF. It also keeps html2canvas away from CSS custom properties.
+ *  1. **One palette, no literals.** Every colour comes from `useSheetPalette()`,
+ *     so the same markup renders as white paper or as a dark document. Values
+ *     are plain hex by the time they reach the DOM, which keeps html2canvas away
+ *     from CSS custom properties.
  *  2. **No CSS grid.** html2canvas rasterises flexbox and tables faithfully and
  *     grid unreliably, so layout here is flex and `<table>` only.
  */
@@ -23,29 +25,10 @@ export interface TemplateProps {
   totals: InvoiceTotals;
 }
 
-export const INK = '#181E28';
-export const MUTED = '#5A6779';
-export const FAINT = '#8A97A8';
-export const RULE = '#E4E8ED';
-export const WASH = '#F6F8FA';
-
-/** Root style every sheet starts from: exact A4 at 96 dpi. */
-export const sheetBase: CSSProperties = {
-  width: '794px',
-  minHeight: '1123px',
-  backgroundColor: '#ffffff',
-  color: INK,
-  fontSize: '13px',
-  lineHeight: 1.55,
-  display: 'flex',
-  flexDirection: 'column',
-  position: 'relative',
-  overflow: 'hidden',
-};
-
 /* ── Small pieces ────────────────────────────────────────────────────────── */
 
 export function Label({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  const { FAINT } = useSheetPalette();
   return (
     <div
       style={{
@@ -126,6 +109,7 @@ export function LogoPlate({
   size?: number;
   where?: string;
 }) {
+  const { logoPlate } = useSheetPalette();
   const [failed, setFailed] = useState(false);
   const src = business.logo;
   if (!src || failed) return null;
@@ -153,7 +137,7 @@ export function LogoPlate({
   return (
     <div
       style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: logoPlate,
         borderRadius: '10px',
         padding: '8px 12px',
         display: 'inline-block',
@@ -174,8 +158,12 @@ export function LogoPlate({
  * marks a document. Only statuses worth flagging get one — "sent" does not.
  */
 export function Stamp({ invoice }: { invoice: Invoice }) {
+  const { legible, stampOpacity } = useSheetPalette();
   const status = getStatus(invoice.status);
   if (!status.stampLabel) return null;
+
+  // A status colour picked for white paper turns to mud on charcoal.
+  const tone = legible(status.stamp);
 
   return (
     <div
@@ -186,14 +174,14 @@ export function Stamp({ invoice }: { invoice: Invoice }) {
         left: '50%',
         transform: 'translate(-50%, -50%) rotate(-15deg)',
         padding: '14px 44px',
-        border: `6px double ${status.stamp}`,
+        border: `6px double ${tone}`,
         borderRadius: '10px',
-        color: status.stamp,
+        color: tone,
         fontSize: '58px',
         fontWeight: 800,
         letterSpacing: '0.16em',
         lineHeight: 1,
-        opacity: 0.14,
+        opacity: stampOpacity,
         pointerEvents: 'none',
         whiteSpace: 'nowrap',
         zIndex: 1,
@@ -229,10 +217,15 @@ export function ContactBlock({
   registration?: string;
   compact?: boolean;
 }) {
+  const { INK, MUTED } = useSheetPalette();
   const site = displayUrl(website);
   return (
     <div style={{ fontSize: compact ? '11.5px' : '12.5px', color: MUTED, lineHeight: 1.6 }}>
-      {name && <div style={{ fontWeight: 700, color: INK, fontSize: compact ? '12.5px' : '14px' }}>{name}</div>}
+      {name && (
+        <div style={{ fontWeight: 700, color: INK, fontSize: compact ? '12.5px' : '14px' }}>
+          {name}
+        </div>
+      )}
       {company && <div style={{ fontWeight: 600, color: INK }}>{company}</div>}
       <Lines text={address ?? ''} />
       {phone && <div>{phone}</div>}
@@ -258,6 +251,7 @@ export interface TotalsProps extends TemplateProps {
 }
 
 export function TotalsBlock({ invoice, totals, accent, variant = 'band' }: TotalsProps) {
+  const { INK, MUTED, FAINT, accentFill, accentInk } = useSheetPalette();
   const money = (value: number) => formatMoney(value, invoice.currencyCode);
 
   const row = (label: string, value: string, options?: { negative?: boolean; muted?: boolean }) => (
@@ -292,7 +286,8 @@ export function TotalsBlock({ invoice, totals, accent, variant = 'band' }: Total
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <tbody>
           {row('Subtotal', money(totals.subtotal))}
-          {totals.itemDiscount > 0 && row('Line discounts', money(totals.itemDiscount), { negative: true })}
+          {totals.itemDiscount > 0 &&
+            row('Line discounts', money(totals.itemDiscount), { negative: true })}
           {totals.invoiceDiscount > 0 &&
             row('Invoice discount', money(totals.invoiceDiscount), { negative: true })}
           {(totals.itemDiscount > 0 || totals.invoiceDiscount > 0) &&
@@ -310,8 +305,8 @@ export function TotalsBlock({ invoice, totals, accent, variant = 'band' }: Total
         <div
           style={{
             marginTop: '12px',
-            backgroundColor: accent,
-            color: '#ffffff',
+            backgroundColor: accentFill,
+            color: accentInk,
             padding: '12px 16px',
             borderRadius: '8px',
             display: 'flex',
@@ -319,7 +314,14 @@ export function TotalsBlock({ invoice, totals, accent, variant = 'band' }: Total
             justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+            }}
+          >
             Amount due
           </span>
           <span style={{ fontSize: '19px', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
@@ -337,10 +339,25 @@ export function TotalsBlock({ invoice, totals, accent, variant = 'band' }: Total
             justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: accent }}>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: accent,
+            }}
+          >
             Amount due
           </span>
-          <span style={{ fontSize: '18px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: INK }}>
+          <span
+            style={{
+              fontSize: '18px',
+              fontWeight: 800,
+              fontVariantNumeric: 'tabular-nums',
+              color: INK,
+            }}
+          >
             {money(totals.grandTotal)}
           </span>
         </div>
@@ -355,7 +372,14 @@ export function TotalsBlock({ invoice, totals, accent, variant = 'band' }: Total
             justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+            }}
+          >
             Amount due
           </span>
           <span style={{ fontSize: '18px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
@@ -378,6 +402,7 @@ export function FooterBlock({
   accent: string;
   wordsLine?: string;
 }) {
+  const { INK, MUTED, RULE } = useSheetPalette();
   const hasNotes = Boolean(invoice.notes?.trim());
   const hasTerms = Boolean(invoice.terms?.trim());
   if (!hasNotes && !hasTerms && !wordsLine) return null;
@@ -437,6 +462,7 @@ export interface ItemsTableProps extends TemplateProps {
 }
 
 export function ItemsTable({ invoice, totals, accent, head = 'rule' }: ItemsTableProps) {
+  const { INK, MUTED, FAINT, RULE, WASH, accentFill, accentInk } = useSheetPalette();
   const money = (value: number) => formatMoney(value, invoice.currencyCode);
   const showTax = invoice.perItemTax;
   const showDiscount = totals.lines.some((line) => line.discount > 0);
@@ -447,7 +473,7 @@ export function ItemsTable({ invoice, totals, accent, head = 'rule' }: ItemsTabl
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
     padding: head === 'filled' ? '10px 10px' : '0 10px 8px',
-    color: head === 'filled' ? '#ffffff' : FAINT,
+    color: head === 'filled' ? accentInk : FAINT,
     whiteSpace: 'nowrap',
   };
 
@@ -462,11 +488,18 @@ export function ItemsTable({ invoice, totals, accent, head = 'rule' }: ItemsTabl
       <thead>
         <tr
           style={{
-            backgroundColor: head === 'filled' ? accent : 'transparent',
-            borderBottom: head === 'filled' ? 'none' : `1.5px solid ${head === 'minimal' ? RULE : INK}`,
+            backgroundColor: head === 'filled' ? accentFill : 'transparent',
+            borderBottom:
+              head === 'filled' ? 'none' : `1.5px solid ${head === 'minimal' ? RULE : INK}`,
           }}
         >
-          <th style={{ ...headCellBase, textAlign: 'left', paddingLeft: head === 'filled' ? '14px' : '0' }}>
+          <th
+            style={{
+              ...headCellBase,
+              textAlign: 'left',
+              paddingLeft: head === 'filled' ? '14px' : '0',
+            }}
+          >
             Description
           </th>
           <th style={{ ...headCellBase, ...numeric, width: '58px' }}>Qty</th>
@@ -501,7 +534,14 @@ export function ItemsTable({ invoice, totals, accent, head = 'rule' }: ItemsTabl
               <td style={{ ...cell, paddingLeft: head === 'filled' ? '14px' : '0' }}>
                 <div style={{ fontWeight: 600, color: INK }}>{item.name || 'Untitled item'}</div>
                 {item.description?.trim() && (
-                  <div style={{ color: MUTED, fontSize: '11px', marginTop: '2px', whiteSpace: 'pre-line' }}>
+                  <div
+                    style={{
+                      color: MUTED,
+                      fontSize: '11px',
+                      marginTop: '2px',
+                      whiteSpace: 'pre-line',
+                    }}
+                  >
                     {item.description}
                   </div>
                 )}

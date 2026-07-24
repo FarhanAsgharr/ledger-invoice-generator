@@ -4,26 +4,26 @@ import {
   ItemsTable,
   Label,
   LogoPlate,
-  MUTED,
   Stamp,
   TotalsBlock,
   metaRows,
-  sheetBase,
 } from './shared';
+import { sheetRoot, useSheetPalette } from './SheetTheme';
 import type { TemplateProps } from './shared';
 
 /** Colour-blocked header, generous spacing. The default. */
 export function ModernTemplate({ invoice, totals }: TemplateProps) {
-  const accent = invoice.accent;
+  const palette = useSheetPalette();
+  const { MUTED, accent, accentFill, accentInk } = palette;
 
   return (
-    <div style={sheetBase}>
+    <div style={sheetRoot(palette)}>
       <Stamp invoice={invoice} />
 
       <header
         style={{
-          backgroundColor: accent,
-          color: '#ffffff',
+          backgroundColor: accentFill,
+          color: accentInk,
           padding: '40px 56px 34px',
           display: 'flex',
           alignItems: 'flex-start',
@@ -40,7 +40,9 @@ export function ModernTemplate({ invoice, totals }: TemplateProps) {
           <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>
             {invoice.business.name || 'Your business'}
           </div>
-          <div style={{ fontSize: '12px', opacity: 0.85, whiteSpace: 'pre-line', marginTop: '6px' }}>
+          <div
+            style={{ fontSize: '12px', opacity: 0.85, whiteSpace: 'pre-line', marginTop: '6px' }}
+          >
             {invoice.business.address}
           </div>
         </div>
@@ -99,7 +101,9 @@ export function ModernTemplate({ invoice, totals }: TemplateProps) {
               <tbody>
                 {metaRows(invoice).map((row) => (
                   <tr key={row.label}>
-                    <td style={{ fontSize: '11.5px', color: MUTED, padding: '2px 0' }}>{row.label}</td>
+                    <td style={{ fontSize: '11.5px', color: MUTED, padding: '2px 0' }}>
+                      {row.label}
+                    </td>
                     <td
                       style={{
                         fontSize: '11.5px',

@@ -15,6 +15,7 @@ export const STORAGE_KEYS = {
   draft: 'ledger.draft',
   history: 'ledger.history',
   lastNumber: 'ledger.lastNumber',
+  exportTheme: 'ledger.exportTheme',
   version: 'ledger.version',
 } as const;
 
@@ -101,6 +102,20 @@ export function saveDraft(invoice: Invoice): boolean {
 
 export function clearDraft(): void {
   removeRaw(STORAGE_KEYS.draft);
+}
+
+/* ── Export appearance ───────────────────────────────────────────────────── */
+
+/**
+ * Whether PDF and print follow the app theme. Defaults to false: a document
+ * someone else opens, and probably prints, should be white paper.
+ */
+export function loadExportFollowsTheme(): boolean {
+  return readRaw(STORAGE_KEYS.exportTheme) === 'current';
+}
+
+export function saveExportFollowsTheme(value: boolean): void {
+  writeRaw(STORAGE_KEYS.exportTheme, value ? 'current' : 'light');
 }
 
 /* ── Invoice number series ───────────────────────────────────────────────── */

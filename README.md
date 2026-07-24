@@ -79,7 +79,8 @@ Other scripts:
 - Local history with search, status filters, duplicate and delete
 - ⌘K opens a palette that searches saved invoices, the customers and products derived from
   them, and every command
-- Light and dark themes, remembered between visits, following the OS until you choose
+- Light and dark themes, remembered between visits, following the OS until you choose —
+  the invoice itself switches too, to a charcoal-slate document rather than an inverted one
 - Toasts for every save, delete, export and failure
 
 ---
@@ -124,9 +125,14 @@ src/
   sheet without touching the navbar or the other sections.
 - **One source of truth for numbers.** `calculateTotals` is pure and synchronous. Nothing
   else adds anything up.
-- **The sheet is a document, not a UI panel.** Templates use literal hex colours and no CSS
-  grid, so they render identically in light mode, dark mode, print and PDF — and so
-  html2canvas rasterises them faithfully.
+- **The sheet is a document, not a UI panel.** Templates hold no colours of their own —
+  they read one palette from `useSheetPalette()`, which is what lets the same markup render
+  as white paper or as a dark document. Values are plain hex by the time they reach the DOM,
+  and layout is flex and `<table>` only, so html2canvas rasterises them faithfully.
+- **Export defaults to white paper.** A PDF is a document someone else opens, and probably
+  prints, so it stays light whatever the app looks like. "Export using current theme" in the
+  ⋯ menu opts out. Forcing the mode re-renders the sheet and waits for paint, because the
+  colours are inline styles — there is nothing for a stylesheet to override.
 - **The preview, the printout and the PDF are the same DOM.** The sheet always lays out at
   794 px (A4 at 96 dpi) and is scaled with a transform for display. There is no separate
   print layout to keep in sync.
@@ -145,6 +151,7 @@ Nothing is uploaded. Everything lives under the `ledger.` prefix in `localStorag
 | `ledger.history`    | Saved invoices, newest first          |
 | `ledger.theme`      | Light or dark                         |
 | `ledger.lastNumber` | The last number used, for the series  |
+| `ledger.exportTheme` | Whether PDF and print follow the app theme |
 | `ledger.version`    | Schema version, for future migrations |
 
 - Free text is stripped of control characters and length-capped before storage
