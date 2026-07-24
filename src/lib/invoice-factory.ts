@@ -89,6 +89,7 @@ export function createEmptyInvoice(overrides: Partial<Invoice> = {}): Invoice {
     business: {
       name: '',
       logo: null,
+      logoIsLight: false,
       address: '',
       phone: '',
       email: '',
@@ -137,6 +138,7 @@ export function createSampleInvoice(): Invoice {
     business: {
       name: 'Northwind Studio',
       logo: null,
+      logoIsLight: false,
       address: '14 Rivet Lane\nUnit 3\nManchester M1 4BT\nUnited Kingdom',
       phone: '+44 161 496 0140',
       email: 'billing@northwind.studio',
@@ -200,6 +202,7 @@ function normalizeBusiness(value: unknown): Business {
   return {
     name: pickString(source, 'name', '', 160),
     logo: isRasterImageDataUrl(source.logo) ? source.logo : null,
+    logoIsLight: source.logoIsLight === true,
     address: pickString(source, 'address', '', 600),
     phone: pickString(source, 'phone', '', 40),
     email: pickString(source, 'email', '', 320),

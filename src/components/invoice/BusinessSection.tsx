@@ -10,6 +10,7 @@ export function BusinessSection() {
   const {
     register,
     control,
+    setValue,
     formState: { errors },
   } = useFormContext<Invoice>();
 
@@ -27,7 +28,15 @@ export function BusinessSection() {
         <Controller
           control={control}
           name="business.logo"
-          render={({ field }) => <LogoUploader value={field.value} onChange={field.onChange} />}
+          render={({ field }) => (
+            <LogoUploader
+              value={field.value}
+              onChange={field.onChange}
+              onMetaChange={({ isLight }) =>
+                setValue('business.logoIsLight', isLight, { shouldDirty: true })
+              }
+            />
+          )}
         />
 
         <Input

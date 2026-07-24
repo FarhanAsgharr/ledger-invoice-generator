@@ -151,7 +151,9 @@ Nothing is uploaded. Everything lives under the `ledger.` prefix in `localStorag
 - URLs are parsed and allow-listed to `http`, `https`, `mailto` and `tel`, so a
   `javascript:` value can never reach an `href`
 - Uploaded logos are re-encoded to PNG through a canvas, which strips any script an SVG
-  might have carried; only raster data URLs are ever stored
+  might have carried; only raster data URLs are ever stored. Transparency is preserved,
+  and the cropper measures the artwork's luminance so templates with a coloured header
+  know whether the logo needs a white plate behind it
 - Accent colours must match `#rgb` or `#rrggbb`
 - History is capped at 100 invoices and trims oldest-first if the browser refuses a write,
   so autosave cannot fail on a full quota

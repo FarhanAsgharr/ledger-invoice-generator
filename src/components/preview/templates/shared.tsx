@@ -73,6 +73,12 @@ export function Logo({ src, size = 64 }: { src: string | null; size?: number }) 
     <img
       src={src}
       alt=""
+      // A logo that will not decode must not leave a broken-image glyph on an
+      // invoice the customer is going to read. Remove it and let the business
+      // name carry the header.
+      onError={(event) => {
+        event.currentTarget.style.display = 'none';
+      }}
       style={{
         maxHeight: `${size}px`,
         maxWidth: `${size * 3.2}px`,
@@ -80,6 +86,36 @@ export function Logo({ src, size = 64 }: { src: string | null; size?: number }) 
         display: 'block',
       }}
     />
+  );
+}
+
+/**
+ * The logo as it appears on a coloured header or sidebar.
+ *
+ * Dark artwork needs a white plate to stay legible against the accent; light
+ * artwork must *not* get one, or a white-on-transparent logo disappears into
+ * it. `logoIsLight` is measured once, when the logo is cropped.
+ */
+export function LogoPlate({
+  business,
+  size = 44,
+}: {
+  business: Invoice['business'];
+  size?: number;
+}) {
+  if (!business.logo) return null;
+  if (business.logoIsLight) return <Logo src={business.logo} size={size} />;
+  return (
+    <div
+      style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '10px',
+        padding: '8px 12px',
+        display: 'inline-block',
+      }}
+    >
+      <Logo src={business.logo} size={size} />
+    </div>
   );
 }
 

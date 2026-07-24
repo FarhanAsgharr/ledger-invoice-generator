@@ -3,7 +3,7 @@ import {
   FooterBlock,
   ItemsTable,
   Label,
-  Logo,
+  LogoPlate,
   MUTED,
   Stamp,
   TotalsBlock,
@@ -33,16 +33,8 @@ export function ModernTemplate({ invoice, totals }: TemplateProps) {
       >
         <div style={{ minWidth: 0 }}>
           {invoice.business.logo && (
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '10px',
-                padding: '8px 12px',
-                display: 'inline-block',
-                marginBottom: '14px',
-              }}
-            >
-              <Logo src={invoice.business.logo} size={44} />
+            <div style={{ marginBottom: '14px' }}>
+              <LogoPlate business={invoice.business} size={44} />
             </div>
           )}
           <div style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>

@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
-import { Crop, ImageUp, Trash2, UploadCloud } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Crop, ImageOff, ImageUp, Trash2, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ImageCropper } from '@/components/invoice/ImageCropper';
+import type { CroppedLogo } from '@/components/invoice/ImageCropper';
 import { useToast } from '@/context/ToastContext';
 import { cn } from '@/lib/utils';
 
@@ -11,15 +12,67 @@ const MAX_BYTES = 8 * 1024 * 1024;
 interface LogoUploaderProps {
   value: string | null;
   onChange: (dataUrl: string | null) => void;
+  /** Reports whether the artwork is light, so templates can plate it correctly. */
+  onMetaChange?: (meta: { isLight: boolean }) => void;
 }
 
-/** Drop zone, cropper trigger and live preview for the company logo. */
-export function LogoUploader({ value, onChange }: LogoUploaderProps) {
+/** What the cropper is currently reading from, and whether we own the URL. */
+interface CropSource {
+  url: string;
+  /** Object URLs must be revoked; data URLs must not be. */
+  revocable: boolean;
+}
+
+/**
+ * Drop zone, cropper trigger and live preview for the company logo.
+ *
+ * Large uploads are handed to the cropper as an object URL rather than a
+ * FileReader data URL — an 8 MB file would otherwise sit in React state as an
+ * ~11 MB base64 string. The URL is revoked as soon as the cropper is finished
+ * with it. SVG is the one exception: it is read as a data URL, because SVG
+ * drawn from a blob URL can taint the canvas on some engines, and a tainted
+ * canvas cannot be exported at all.
+ */
+export function LogoUploader({ value, onChange, onMetaChange }: LogoUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const sourceRef = useRef<CropSource | null>(null);
   const [source, setSource] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [cropping, setCropping] = useState(false);
+  const [broken, setBroken] = useState(false);
   const toast = useToast();
+
+  /** Revoke the previous object URL, if we created one. */
+  const releaseSource = useCallback(() => {
+    const current = sourceRef.current;
+    if (current?.revocable) URL.revokeObjectURL(current.url);
+    sourceRef.current = null;
+  }, []);
+
+  const openCropper = useCallback(
+    (next: CropSource) => {
+      releaseSource();
+      sourceRef.current = next;
+      setSource(next.url);
+      setCropping(true);
+    },
+    [releaseSource],
+  );
+
+  const closeCropper = useCallback(() => {
+    setCropping(false);
+    // The canvas already holds the pixels, so the URL is safe to release now.
+    releaseSource();
+    setSource(null);
+  }, [releaseSource]);
+
+  // Never leak a URL if the section unmounts mid-crop.
+  useEffect(() => releaseSource, [releaseSource]);
+
+  // A newly assigned logo is trusted until an <img> says otherwise.
+  useEffect(() => {
+    setBroken(false);
+  }, [value]);
 
   const readFile = useCallback(
     (file: File) => {
@@ -31,15 +84,28 @@ export function LogoUploader({ value, onChange }: LogoUploaderProps) {
         toast.error('That image is too large', 'Pick a file under 8 MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        setSource(typeof reader.result === 'string' ? reader.result : null);
-        setCropping(true);
-      };
-      reader.onerror = () => toast.error('The file could not be read', 'Try uploading it again.');
-      reader.readAsDataURL(file);
+
+      if (file.type === 'image/svg+xml') {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result !== 'string') {
+            toast.error('The file could not be read', 'Try uploading it again.');
+            return;
+          }
+          openCropper({ url: reader.result, revocable: false });
+        };
+        reader.onerror = () => toast.error('The file could not be read', 'Try uploading it again.');
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      try {
+        openCropper({ url: URL.createObjectURL(file), revocable: true });
+      } catch {
+        toast.error('The file could not be read', 'Try uploading it again.');
+      }
     },
-    [toast],
+    [openCropper, toast],
   );
 
   const onDrop = (event: React.DragEvent) => {
@@ -49,18 +115,39 @@ export function LogoUploader({ value, onChange }: LogoUploaderProps) {
     if (file) readFile(file);
   };
 
+  const removeLogo = () => {
+    onChange(null);
+    onMetaChange?.({ isLight: false });
+    releaseSource();
+    setSource(null);
+    setBroken(false);
+    toast.info('Logo removed');
+  };
+
   return (
     <>
       <div className="flex flex-col gap-3">
         <span className="text-[0.8125rem] font-semibold leading-none text-muted">Logo</span>
 
-        {value ? (
+        {value && !broken ? (
           <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-sunken p-4 ring-1 ring-inset ring-hairline">
-            <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl bg-white p-2 ring-1 ring-inset ring-hairline">
+            {/* A checkerboard, so a transparent logo reads as transparent rather
+                than as a white rectangle the user cannot explain. */}
+            <div
+              className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl p-2 ring-1 ring-inset ring-hairline"
+              style={{
+                backgroundImage:
+                  'linear-gradient(45deg, #e9edf2 25%, transparent 25%), linear-gradient(-45deg, #e9edf2 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e9edf2 75%), linear-gradient(-45deg, transparent 75%, #e9edf2 75%)',
+                backgroundSize: '12px 12px',
+                backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0',
+                backgroundColor: '#ffffff',
+              }}
+            >
               <img
                 src={value}
                 alt="Your company logo as it will appear on the invoice"
                 className="h-full w-full object-contain"
+                onError={() => setBroken(true)}
               />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -73,10 +160,7 @@ export function LogoUploader({ value, onChange }: LogoUploaderProps) {
                   size="sm"
                   variant="outline"
                   leftIcon={<Crop className="h-3.5 w-3.5" />}
-                  onClick={() => {
-                    setSource(value);
-                    setCropping(true);
-                  }}
+                  onClick={() => openCropper({ url: value, revocable: false })}
                 >
                   Reposition
                 </Button>
@@ -92,16 +176,39 @@ export function LogoUploader({ value, onChange }: LogoUploaderProps) {
                   size="sm"
                   variant="ghost"
                   leftIcon={<Trash2 className="h-3.5 w-3.5" />}
-                  onClick={() => {
-                    onChange(null);
-                    setSource(null);
-                    toast.info('Logo removed');
-                  }}
+                  onClick={removeLogo}
                   className="text-danger-400 hover:bg-danger-400/10 hover:text-danger-400"
                 >
                   Remove
                 </Button>
               </div>
+            </div>
+          </div>
+        ) : value && broken ? (
+          /* The stored value did not decode. Say so, and offer the two ways out. */
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-danger-400/8 p-4 ring-1 ring-inset ring-danger-400/30">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-danger-400/12 text-danger-400">
+              <ImageOff aria-hidden="true" className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-fg">This logo could not be displayed</p>
+              <p className="mt-0.5 text-xs text-muted">
+                The saved image is unreadable. Upload it again, or remove it to fall back to your
+                business name.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
+                Upload again
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={removeLogo}
+                className="text-danger-400 hover:bg-danger-400/10 hover:text-danger-400"
+              >
+                Remove
+              </Button>
             </div>
           </div>
         ) : (
@@ -118,7 +225,7 @@ export function LogoUploader({ value, onChange }: LogoUploaderProps) {
               'group flex flex-col items-center justify-center gap-2 rounded-2xl px-5 py-8',
               'border-2 border-dashed transition-all duration-250 ease-swift',
               dragging
-                ? 'border-brand-500 bg-brand-500/8 scale-[1.01]'
+                ? 'scale-[1.01] border-brand-500 bg-brand-500/8'
                 : 'border-hairline bg-sunken hover:border-brand-400/60 hover:bg-brand-500/5',
             )}
           >
@@ -153,10 +260,11 @@ export function LogoUploader({ value, onChange }: LogoUploaderProps) {
       <ImageCropper
         open={cropping}
         source={source}
-        onCancel={() => setCropping(false)}
-        onApply={(dataUrl) => {
-          onChange(dataUrl);
-          setCropping(false);
+        onCancel={closeCropper}
+        onApply={(result: CroppedLogo) => {
+          onChange(result.dataUrl);
+          onMetaChange?.({ isLight: result.isLight });
+          closeCropper();
           toast.success('Logo updated', 'It is on the invoice now.');
         }}
       />

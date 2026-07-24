@@ -107,6 +107,7 @@ export const invoiceSchema = z
     business: z.object({
       name: z.string().trim().min(1, 'Add your business name — it appears at the top of the invoice'),
       logo: z.string().nullable(),
+      logoIsLight: z.boolean(),
       address: z.string().max(600),
       phone: z.string().max(40),
       email: optionalEmail,

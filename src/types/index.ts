@@ -70,6 +70,12 @@ export interface Business {
   name: string;
   /** Data URL produced by the logo cropper. Never a remote URL. */
   logo: string | null;
+  /**
+   * True when the logo artwork is predominantly light. Templates with a
+   * coloured header use it to decide whether to put a white plate behind the
+   * logo — a white-on-transparent logo must not sit on a white plate.
+   */
+  logoIsLight: boolean;
   address: string;
   phone: string;
   email: string;

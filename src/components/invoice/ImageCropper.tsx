@@ -3,6 +3,7 @@ import { Maximize2, Minus, Plus, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Switch } from '@/components/ui/Switch';
 import { clamp, cn } from '@/lib/utils';
 
 type Shape = 'square' | 'wide';
@@ -15,20 +16,55 @@ const SHAPES: Record<Shape, { ratio: number; label: string; hint: string }> = {
 /** Longest edge of the exported image. Keeps the data URL well under 400 KB. */
 const OUTPUT_LONG_EDGE = 640;
 const VIEWPORT_WIDTH = 320;
+const CHECKER_SIZE = 10;
+
+/** Above this mean luminance a logo is treated as light-on-dark artwork. */
+const LIGHT_LOGO_THRESHOLD = 0.62;
+
+export interface CroppedLogo {
+  /** PNG data URL, alpha preserved. */
+  dataUrl: string;
+  /**
+   * True when the artwork is predominantly light. Templates with a coloured
+   * header use this to decide whether the logo needs a white plate behind it.
+   */
+  isLight: boolean;
+}
 
 interface ImageCropperProps {
   open: boolean;
-  /** Data URL of the file the user picked. */
+  /** Object URL or data URL of the image being cropped. */
   source: string | null;
   onCancel: () => void;
-  onApply: (dataUrl: string) => void;
+  onApply: (result: CroppedLogo) => void;
+}
+
+interface PaintOptions {
+  width: number;
+  height: number;
+  pixelRatio: number;
+  /**
+   * `checker` draws a transparency grid behind the artwork — on-screen only.
+   * `flatten` bakes an opaque white plate in, which the user must opt into.
+   * `none` keeps the canvas transparent, which is what export uses by default.
+   */
+  backdrop: 'checker' | 'flatten' | 'none';
 }
 
 /**
  * Crop, zoom and rotate the uploaded logo, then hand back a PNG data URL.
  *
- * Rasterising here is also the security boundary: an uploaded SVG never reaches
- * the store or the preview as markup — only as pixels.
+ * Two things about this component are load-bearing:
+ *
+ *  1. **Alpha is preserved.** An earlier version filled the output canvas with
+ *     opaque white before drawing, which was invisible for dark logos and
+ *     turned every white-on-transparent logo — the most common export from any
+ *     design tool — into a solid white rectangle. The preview still shows a
+ *     backdrop so transparency is legible; the exported canvas never does
+ *     unless the user asks for it.
+ *
+ *  2. **Rasterising here is the security boundary.** An uploaded SVG never
+ *     reaches the store or the preview as markup, only as pixels.
  */
 export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,6 +75,7 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [flatten, setFlatten] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,7 +100,7 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
 
     image.onload = () => {
       if (cancelled) return;
-      // Some SVGs report zero intrinsic size; give them a sane box to raster into.
+      // Some SVGs report no intrinsic size; give them a box to rasterise into.
       if (!image.naturalWidth || !image.naturalHeight) {
         image.width = 512;
         image.height = 512;
@@ -73,7 +110,9 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
     };
     image.onerror = () => {
       if (cancelled) return;
-      setError('That file could not be read as an image. Try a PNG, JPG or SVG.');
+      imageRef.current = null;
+      setReady(false);
+      setError('That file could not be read as an image. Try a PNG, JPG, WebP or SVG.');
     };
     image.src = source;
 
@@ -94,19 +133,35 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
     return Math.max(viewport.width / width, viewport.height / height);
   }, [rotation, viewport]);
 
+  /** Returns false when there is nothing to draw, so callers can react. */
   const paint = useCallback(
-    (canvas: HTMLCanvasElement, width: number, height: number, pixelRatio: number) => {
+    (canvas: HTMLCanvasElement, { width, height, pixelRatio, backdrop }: PaintOptions): boolean => {
       const image = imageRef.current;
+      if (!image) return false;
       const ctx = canvas.getContext('2d');
-      if (!ctx || !image) return;
+      if (!ctx) return false;
 
       canvas.width = Math.round(width * pixelRatio);
       canvas.height = Math.round(height * pixelRatio);
 
       ctx.save();
       ctx.scale(pixelRatio, pixelRatio);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
+
+      // Start from a genuinely empty surface. Anything opaque is deliberate.
+      ctx.clearRect(0, 0, width, height);
+
+      if (backdrop === 'checker') {
+        for (let y = 0; y < height; y += CHECKER_SIZE) {
+          for (let x = 0; x < width; x += CHECKER_SIZE) {
+            const even = ((x / CHECKER_SIZE) | 0) % 2 === ((y / CHECKER_SIZE) | 0) % 2;
+            ctx.fillStyle = even ? '#ffffff' : '#eef1f5';
+            ctx.fillRect(x, y, CHECKER_SIZE, CHECKER_SIZE);
+          }
+        }
+      } else if (backdrop === 'flatten') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+      }
 
       const ratio = width / viewport.width;
       const scale = baseScale() * zoom * ratio;
@@ -120,6 +175,7 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
       ctx.scale(scale, scale);
       ctx.drawImage(image, -iw / 2, -ih / 2, iw, ih);
       ctx.restore();
+      return true;
     },
     [baseScale, offset.x, offset.y, rotation, viewport.width, zoom],
   );
@@ -128,9 +184,13 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !ready) return;
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-    paint(canvas, viewport.width, viewport.height, pixelRatio);
-  }, [paint, ready, viewport]);
+    paint(canvas, {
+      width: viewport.width,
+      height: viewport.height,
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      backdrop: flatten ? 'flatten' : 'checker',
+    });
+  }, [paint, ready, viewport, flatten]);
 
   /* Pan with pointer or touch. */
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -142,10 +202,7 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const drag = dragState.current;
     if (!drag) return;
-    setOffset({
-      x: drag.ox + (event.clientX - drag.x),
-      y: drag.oy + (event.clientY - drag.y),
-    });
+    setOffset({ x: drag.ox + (event.clientX - drag.x), y: drag.oy + (event.clientY - drag.y) });
   };
 
   const endDrag = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -179,12 +236,37 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
   const apply = () => {
     if (!ready) return;
     setSaving(true);
+    setError(null);
     try {
       const output = document.createElement('canvas');
       const width = OUTPUT_LONG_EDGE;
       const height = Math.round(width / SHAPES[shape].ratio);
-      paint(output, width, height, 1);
-      onApply(output.toDataURL('image/png'));
+
+      const painted = paint(output, {
+        width,
+        height,
+        pixelRatio: 1,
+        backdrop: flatten ? 'flatten' : 'none',
+      });
+
+      if (!painted) {
+        setError('The image is still loading. Give it a moment and try again.');
+        return;
+      }
+
+      const { blank, isLight } = inspectCanvas(output);
+      if (blank) {
+        setError('The crop frame is empty. Zoom out or drag the image into the frame.');
+        return;
+      }
+
+      const dataUrl = output.toDataURL('image/png');
+      if (!dataUrl.startsWith('data:image/png;base64,')) {
+        setError('The browser could not encode the logo. Try a different file.');
+        return;
+      }
+
+      onApply({ dataUrl, isLight });
     } catch {
       setError('The image could not be processed. Try a smaller file.');
     } finally {
@@ -197,7 +279,7 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
       open={open}
       onClose={onCancel}
       title="Position your logo"
-      description="Drag to move, scroll or use the slider to zoom. The area inside the frame is what appears on the invoice."
+      description="Drag to move, scroll or use the slider to zoom. Whatever sits inside the frame is what appears on the invoice."
       size="md"
       footer={
         <>
@@ -239,9 +321,7 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
             onKeyDown={onKeyDown}
-            onWheel={(event) => {
-              setZoom((current) => clamp(current - event.deltaY * 0.002, 0.4, 4));
-            }}
+            onWheel={(event) => setZoom((current) => clamp(current - event.deltaY * 0.002, 0.4, 4))}
             className={cn(
               'h-full w-full touch-none',
               ready ? 'cursor-grab active:cursor-grabbing' : 'cursor-wait opacity-0',
@@ -253,7 +333,6 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
               <div className="skeleton h-full w-full" />
             </div>
           )}
-          {/* Crop frame overlay */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-brand-500/60"
@@ -299,6 +378,15 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
           </Button>
         </div>
 
+        <div className="w-full rounded-xl bg-sunken px-4 py-3 ring-1 ring-inset ring-hairline">
+          <Switch
+            checked={flatten}
+            onChange={setFlatten}
+            label="Add a white background"
+            description="Transparency is kept by default. Turn this on if your logo needs a solid plate behind it."
+          />
+        </div>
+
         {error && (
           <p role="alert" className="text-sm font-medium text-danger-400">
             {error}
@@ -307,4 +395,33 @@ export function ImageCropper({ open, source, onCancel, onApply }: ImageCropperPr
       </div>
     </Modal>
   );
+}
+
+/**
+ * Read back the rendered pixels to answer two questions the user should never
+ * have to: did anything land inside the frame, and is the artwork light or dark?
+ *
+ * Wrapped in try/catch because a tainted canvas throws here — in that case we
+ * fall back to "not blank, not light" rather than blocking a valid upload.
+ */
+function inspectCanvas(canvas: HTMLCanvasElement): { blank: boolean; isLight: boolean } {
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return { blank: false, isLight: false };
+
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let opaque = 0;
+    let luminance = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 24) continue;
+      opaque += 1;
+      luminance += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+    }
+
+    if (opaque === 0) return { blank: true, isLight: false };
+    return { blank: false, isLight: luminance / opaque > LIGHT_LOGO_THRESHOLD };
+  } catch {
+    return { blank: false, isLight: false };
+  }
 }

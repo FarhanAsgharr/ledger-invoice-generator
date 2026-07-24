@@ -4,7 +4,7 @@ import {
   ItemsTable,
   Label,
   Lines,
-  Logo,
+  LogoPlate,
   MUTED,
   Stamp,
   TotalsBlock,
@@ -36,16 +36,8 @@ export function ProfessionalTemplate({ invoice, totals }: TemplateProps) {
       >
         <div>
           {invoice.business.logo && (
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '8px',
-                padding: '8px 10px',
-                display: 'inline-block',
-                marginBottom: '14px',
-              }}
-            >
-              <Logo src={invoice.business.logo} size={40} />
+            <div style={{ marginBottom: '14px' }}>
+              <LogoPlate business={invoice.business} size={40} />
             </div>
           )}
           <div style={{ fontSize: '17px', fontWeight: 800, letterSpacing: '-0.015em' }}>
