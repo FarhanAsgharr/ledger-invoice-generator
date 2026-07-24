@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F14" />
+      <stop offset="100%" stop-color="#0C2A25" />
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#12A17A" />
+      <stop offset="100%" stop-color="#0C6353" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="1060" cy="90" r="260" fill="#12A17A" opacity="0.12" />
+
+  <rect x="80" y="76" width="72" height="72" rx="18" fill="url(#mark)" />
+  <path d="M100 96h26l12 12v30h-38V96Z" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round" />
+  <path d="M108 114h20M108 124h20" stroke="#fff" stroke-width="4" stroke-linecap="round" />
+
+  <text x="172" y="126" font-family="Helvetica, Arial, sans-serif" font-size="40" font-weight="700" fill="#ffffff">Ledger</text>
+
+  <text x="80" y="290" font-family="Helvetica, Arial, sans-serif" font-size="82" font-weight="800" fill="#ffffff">Invoices that</text>
+  <text x="80" y="380" font-family="Helvetica, Arial, sans-serif" font-size="82" font-weight="800" fill="#2FB48D">add up.</text>
+
+  <text x="80" y="452" font-family="Helvetica, Arial, sans-serif" font-size="30" fill="#8A97A8">Seven templates · 45 currencies · multi-tax · PDF &amp; print</text>
+  <text x="80" y="500" font-family="Helvetica, Arial, sans-serif" font-size="30" fill="#8A97A8">Runs in your browser. Nothing leaves your device.</text>
+
+  <rect x="820" y="250" width="300" height="330" rx="10" fill="#ffffff" opacity="0.97" transform="rotate(-4 970 415)" />
+  <rect x="846" y="292" width="150" height="14" rx="7" fill="#0C6353" transform="rotate(-4 970 415)" />
+  <rect x="846" y="330" width="248" height="8" rx="4" fill="#E4E8ED" transform="rotate(-4 970 415)" />
+  <rect x="846" y="352" width="220" height="8" rx="4" fill="#E4E8ED" transform="rotate(-4 970 415)" />
+  <rect x="846" y="392" width="248" height="8" rx="4" fill="#E4E8ED" transform="rotate(-4 970 415)" />
+  <rect x="846" y="414" width="248" height="8" rx="4" fill="#E4E8ED" transform="rotate(-4 970 415)" />
+  <rect x="846" y="470" width="248" height="34" rx="8" fill="#12A17A" transform="rotate(-4 970 415)" />
+</svg>

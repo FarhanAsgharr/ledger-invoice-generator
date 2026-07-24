@@ -1,0 +1,332 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Ledger — design tokens
+   Semantic colours live here as RGB triplets so Tailwind's `/<alpha-value>`
+   modifier works and a single class swap repaints the whole app.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    --c-canvas: 237 240 244; /* desk surface the paper sits on */
+    --c-surface: 255 255 255;
+    --c-raised: 255 255 255;
+    --c-sunken: 244 246 249;
+    --c-hairline: 224 229 236;
+    --c-fg: 15 20 28;
+    --c-muted: 90 103 121;
+    --c-faint: 124 138 160;
+
+    --sheet-bg: 255 255 255;
+    --sheet-ink: 24 30 40;
+
+    --nav-h: 3.75rem;
+  }
+
+  .dark {
+    --c-canvas: 8 11 16;
+    --c-surface: 17 23 32;
+    --c-raised: 22 30 40;
+    --c-sunken: 13 18 25;
+    --c-hairline: 35 44 56;
+    --c-fg: 232 236 241;
+    --c-muted: 138 151 168;
+    --c-faint: 110 123 141;
+
+    /* The invoice sheet stays paper-coloured in dark mode — it is a document,
+       not a UI panel. Only its frame and the desk around it go dark. */
+    --sheet-bg: 255 255 255;
+    --sheet-ink: 24 30 40;
+  }
+
+  * {
+    border-color: rgb(var(--c-hairline));
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  body {
+    @apply bg-canvas font-sans text-fg antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  /* Numerals in an invoice must line up in a column. Always. */
+  .tabular,
+  input[type='number'],
+  td[data-numeric='true'] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  ::selection {
+    @apply bg-brand-500/25;
+  }
+
+  /* One focus treatment, everywhere. */
+  :focus-visible {
+    outline: 2px solid rgb(18 161 122);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Scrollbars: present but quiet. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--c-hairline)) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--c-hairline));
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--c-faint) / 0.6);
+    background-clip: content-box;
+  }
+
+  /* Firefox shows spinners on number inputs; the invoice table has its own
+     steppers and the spinners break column alignment. */
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Native date pickers get a themed indicator in dark mode. */
+  .dark input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.75);
+  }
+}
+
+@layer components {
+  /* ── Frosted chrome: navbar, dialogs, floating rails ── */
+  .glass {
+    background-color: rgb(var(--c-surface) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* ── The desk: a subtle graded surface so the paper reads as lifted ── */
+  .desk {
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgb(18 161 122 / 0.07), transparent 60%),
+      radial-gradient(80% 60% at 90% 110%, rgb(229 174 30 / 0.05), transparent 60%);
+  }
+  .dark .desk {
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgb(18 161 122 / 0.1), transparent 60%),
+      radial-gradient(80% 60% at 90% 110%, rgb(229 174 30 / 0.06), transparent 62%);
+  }
+
+  /* ── Signature gradient. Used on the primary action and the totals band only. ── */
+  .grad-brand {
+    background-image: linear-gradient(135deg, #12a17a 0%, #0e7c66 55%, #0c6353 100%);
+  }
+  .grad-brand-soft {
+    background-image: linear-gradient(135deg, rgb(18 161 122 / 0.12), rgb(12 99 83 / 0.06));
+  }
+  .grad-text {
+    background-image: linear-gradient(120deg, #12a17a, #2fb48d 60%, #0e7c66);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* ── Skeleton shimmer ── */
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-hairline/70;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--c-surface) / 0.6),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+
+  /* ── Section numbering in the editor: the invoice really is a sequence ── */
+  .step-marker {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-semibold;
+    @apply bg-brand-500/10 text-brand-600;
+  }
+  .dark .step-marker {
+    @apply bg-brand-400/12 text-brand-300;
+  }
+
+  /* ── The paper sheet ── */
+  .sheet {
+    background-color: rgb(var(--sheet-bg));
+    color: rgb(var(--sheet-ink));
+    box-shadow:
+      0 0 0 1px rgb(8 11 16 / 0.06),
+      0 2px 4px rgb(8 11 16 / 0.05),
+      0 12px 24px -8px rgb(8 11 16 / 0.14),
+      0 40px 64px -32px rgb(8 11 16 / 0.28);
+  }
+  .dark .sheet {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.08),
+      0 12px 24px -8px rgb(0 0 0 / 0.5),
+      0 40px 72px -28px rgb(0 0 0 / 0.7);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  /* Visually hidden but announced by screen readers. */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* ==========================================================================
+   Print — the app disappears and the sheet becomes the page.
+
+   The preview is a fixed-width sheet inside a scaled, clipped wrapper, so the
+   usual `visibility: hidden` trick prints blank pages: the ancestors keep their
+   transform, their overflow and their collapsed height.
+
+   Instead, every element on the path from #root down to the sheet carries
+   `data-print-path`. Printing unwinds exactly that chain and removes everything
+   hanging off it — no transforms, no clipping, no leading blank pages.
+   ========================================================================== */
+@page {
+  size: A4;
+  /* The sheet is exactly 794 x 1123 px — A4 at 96 dpi. It supplies its own
+     margins, and templates like Modern bleed colour to the edge. */
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Drop every branch that is not on the path to the sheet. */
+  body > *:not([data-print-path]),
+  [data-print-path] > *:not([data-print-path]):not(#print-root) {
+    display: none !important;
+  }
+
+  /* Unwind the path itself. */
+  [data-print-path] {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  #print-root {
+    display: block !important;
+    position: static !important;
+    width: 794px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+
+  /* The sheet is authored at 794 x 1123 px. Chrome's A4 page box is 793.7 x
+     1122.5 px, so those exact values overflow by half a pixel and emit a blank
+     second page. Restating them in millimetres — just inside the page — keeps a
+     one-page invoice on one page. */
+  #print-root .sheet,
+  #print-root .sheet > * {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    margin: 0 !important;
+  }
+
+  #print-root .sheet > * {
+    min-height: 295mm !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Keep table rows and the totals block from splitting across pages. */
+  tr,
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}

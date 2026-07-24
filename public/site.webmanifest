@@ -1,0 +1,17 @@
+{
+  "name": "Ledger — Invoice Generator",
+  "short_name": "Ledger",
+  "description": "Build, preview, print and export professional invoices. Runs entirely in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EDF0F4",
+  "theme_color": "#12A17A",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
